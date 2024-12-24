@@ -3,17 +3,16 @@ This is a boilerplate pipeline 'ingesting'
 generated using Kedro 0.19.10
 """
 
-import kagglehub
-import pandas as pd
-import os
+from kagglehub.pandas_datasets import load_pandas_dataset
 
-def ingest():
+def ingest(dasets_schema):
     """
     """
-    path = kagglehub.dataset_download("olistbr/brazilian-ecommerce")
-    source_dir = path
     dfs = []
-    for filename in sorted(os.listdir(source_dir)):
-        source_file = os.path.join(source_dir, filename)
-        dfs.append(pd.read_csv(source_file))
+    for dataset_name,schema in dasets_schema.items():
+        df = load_pandas_dataset("olistbr/brazilian-ecommerce/versions/2",
+                                path=f'olist_{dataset_name}_dataset.csv',
+                                sql_query=f'SELECT * FROM olist_{dataset_name}_dataset')
+        df = df.astype(schema)
+        dfs.append(df)
     return dfs

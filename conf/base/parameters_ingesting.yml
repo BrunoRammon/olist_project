@@ -3,3 +3,61 @@
 #
 # Documentation for this file format can be found in "Parameters"
 # Link: https://docs.kedro.org/en/0.19.10/configuration/parameters.html
+
+dataset_schemas:
+  customers:
+    customer_id: string
+    customer_unique_id: string 
+    customer_zip_code_prefix: string
+    customer_city: string
+    customer_state: string
+  orders:
+    order_id: string
+    customer_id: string
+    order_status: string
+    order_purchase_timestamp: datetime64[ns]
+    order_approved_at: datetime64[ns]
+    order_delivered_carrier_date: datetime64[ns]
+    order_delivered_customer_date: datetime64[ns]
+    order_estimated_delivery_date: datetime64[ns]
+  order_items:
+    order_id: string
+    order_item_id: string
+    product_id: string
+    seller_id: string
+    shipping_limit_date: datetime64[ns]
+    price: float
+    freight_value: float
+  products:
+    product_id: string
+    product_category_name: string
+    product_name_lenght: float
+    product_description_lenght: string 
+    product_photos_qty: Int64
+    product_weight_g: float
+    product_length_cm: float
+    product_height_cm: float
+    product_width_cm: float
+  geolocation:
+    geolocation_zip_code_prefix: string
+    geolocation_city: string
+    geolocation_state: string
+  order_payments:
+    order_id: string
+    payment_sequential: int
+    payment_type: string
+    payment_installments: int 
+    payment_value: float
+  order_reviews:
+    review_id: string
+    order_id: string
+    review_score: int
+    review_comment_title: string
+    review_comment_message: string
+    review_creation_date: datetime64[ns]
+    review_answer_timestamp: datetime64[ns]
+  sellers:
+    seller_id: string
+    seller_zip_code_prefix: string
+    seller_city: string
+    seller_state: string
