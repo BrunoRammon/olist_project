@@ -1,3 +1,7 @@
 "raw_{name}":
   type: pandas.ParquetDataset
   filepath: data/01_raw/{name}.parquet
+
+"pre_{name}":
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/{name}.parquet
