@@ -14,14 +14,12 @@ def preprocessing_payments(df_order_payments: pd.DataFrame,
     df_pre = (
         df_order_payments
         .merge(
-            df_orders[["order_id", "order_status", "order_purchase_timestamp"]]
+            df_orders[["order_id", "order_approved_at"]]
             .drop_duplicates(),
             on="order_id",
             how='left',
             validate='m:1'
         )
-        .query("order_status=='delivered'")
-        .drop(columns="order_status")
         .merge(
             df_order_items[['seller_id','order_id']]
             .drop_duplicates(),
@@ -30,14 +28,20 @@ def preprocessing_payments(df_order_payments: pd.DataFrame,
             validate='m:m',
             indicator=True
         )
+        .assign(
+            cohort_info = lambda df: (
+                df.order_approved_at.dt.strftime("%Y%m").astype('Int64')
+            )
+        )
+        .query('seller_id.notna()')
+        .reset_index(drop=True)
     )
     assert all(df_pre['_merge'].astype("string").fillna("nulo") == "both")
-    df_pre = df_pre.drop(columns=['_merge'])
+    df_pre = df_pre.drop(columns=['_merge',"order_id","order_approved_at"])
 
     return df_pre
 
 def preprocessing_reviews(df_order_reviews: pd.DataFrame,
-                          df_orders: pd.DataFrame,
                           df_order_items: pd.DataFrame)-> pd.DataFrame:
     """
     """
@@ -45,15 +49,6 @@ def preprocessing_reviews(df_order_reviews: pd.DataFrame,
     df_pre = (
         df_order_reviews
         .merge(
-            df_orders[["order_id", "order_status"]]
-            .drop_duplicates(),
-            on="order_id",
-            how='left',
-            validate='m:1'
-        )
-        .query("order_status=='delivered'")
-        .drop(columns="order_status")
-        .merge(
             df_order_items[['seller_id','order_id']]
             .drop_duplicates(),
             on=['order_id'],
@@ -61,6 +56,16 @@ def preprocessing_reviews(df_order_reviews: pd.DataFrame,
             validate='m:m',
             indicator=True
         )
+        .assign(
+            cohort_info = lambda df: (
+                df.review_answer_timestamp.dt.strftime("%Y%m").astype('Int64')
+            ),
+            delay_answer_review = lambda df: (
+                (df.review_answer_timestamp - df.review_creation_date).dt.days
+            )
+        )
+        .query('seller_id.notna()')
+        .reset_index(drop=True)
     )
     assert all(df_pre['_merge'].astype("string").fillna("nulo") == "both")
     df_pre = df_pre.drop(columns=['_merge','order_id'])
@@ -88,15 +93,22 @@ def preprocessing_items(df_order_items: pd.DataFrame,
     df_pre = (
         df_pre
         .merge(
-            df_orders[["order_id", "order_status", "order_purchase_timestamp"]]
+            df_orders[["order_id", "order_purchase_timestamp"]]
             .drop_duplicates(),
             on="order_id",
             how='left',
             validate='m:1'
         )
-        .query("order_status=='delivered'")
+        .assign(
+            cohort_info = lambda df: (
+                df.order_purchase_timestamp.dt.strftime("%Y%m").astype('Int64')
+            )
+        )
+        .query('seller_id.notna()')
+        .reset_index(drop=True)
     )
-    df_pre = df_pre.drop(columns=['order_status','order_id', '_merge','order_item_id'])
+    df_pre = df_pre.drop(columns=['order_id', '_merge','order_item_id',
+                                  'order_purchase_timestamp'])
 
     return df_pre
 
@@ -109,14 +121,13 @@ def preprocessing_customers(df_customers: pd.DataFrame,
     df_pre = (
         df_customers
         .merge(
-            df_orders[["order_id", "customer_id", "order_status",
+            df_orders[["order_id", "customer_id",
                        "order_purchase_timestamp"]]
             .drop_duplicates(),
             on="customer_id",
             how='left',
             validate='1:1'
         )
-        .query("order_status=='delivered'")
         .merge(
             df_orders_items[['seller_id','order_id']]
             .drop_duplicates(),
@@ -126,11 +137,17 @@ def preprocessing_customers(df_customers: pd.DataFrame,
             indicator=True
         )
         .assign(
-            customer_zip_code_prefix = lambda df: df.customer_zip_code_prefix.str.zfill(5)
+            customer_zip_code_prefix = lambda df: df.customer_zip_code_prefix.str.zfill(5),
+            cohort_info = lambda df: (
+                df.order_purchase_timestamp.dt.strftime("%Y%m").astype('Int64')
+            )
         )
+        .query('seller_id.notna()')
+        .reset_index(drop=True)
     )
     assert all(df_pre['_merge'].astype("string").fillna("nulo") == "both")
-    df_pre = df_pre.drop(columns=['_merge', 'order_status','customer_id', 'order_id'])
+    df_pre = df_pre.drop(columns=['_merge','customer_id',
+                                  'order_id', 'order_purchase_timestamp'])
 
     return df_pre
 
@@ -141,7 +158,6 @@ def preprocessing_orders(df_orders: pd.DataFrame,
 
     df_pre = (
         df_orders
-        .query("order_status=='delivered'")
         .merge(
             df_orders_items[['seller_id','order_id']]
             .drop_duplicates(),
@@ -150,40 +166,30 @@ def preprocessing_orders(df_orders: pd.DataFrame,
             validate='1:m',
             indicator=True
         )
+        .assign(
+            cohort_info = lambda df: (
+                df.order_purchase_timestamp.dt.strftime("%Y%m").astype('Int64')
+            )
+        )
+        .query('seller_id.notna()')
+        .reset_index(drop=True)
     )
     assert all(df_pre['_merge'].astype("string").fillna("nulo") == "both")
     df_pre = df_pre.drop(columns=['_merge',"customer_id"])
 
     return df_pre
 
-def preprocessing_sellers(df_sellers: pd.DataFrame,
-                          df_orders: pd.DataFrame,
-                          df_orders_items: pd.DataFrame)-> pd.DataFrame:
+def preprocessing_sellers(df_sellers: pd.DataFrame)-> pd.DataFrame:
     """
     """
 
     df_pre = (
         df_sellers
-        .merge(
-            df_orders_items[['seller_id','order_id']]
-            .drop_duplicates(),
-            on=['seller_id'],
-            how='left',
-            validate='m:m',
-        )
-        .merge(
-            df_orders[["order_id", "order_status"]]
-            .drop_duplicates(),
-            on="order_id",
-            how='left',
-            validate='m:1'
-        )
-        .query("order_status=='delivered'")
-        .drop_duplicates(['seller_id'])
-        .drop(columns=["order_status","order_id"])
         .assign(
             seller_zip_code_prefix = lambda df: df.seller_zip_code_prefix.str.zfill(5)
         )
+        .query('seller_id.notna()')
+        .reset_index(drop=True)
     )
 
     return df_pre

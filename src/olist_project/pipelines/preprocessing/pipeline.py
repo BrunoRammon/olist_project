@@ -53,7 +53,6 @@ def create_pipeline(**kwargs) -> Pipeline:
             func=preprocessing_reviews,
             inputs=[
                 "raw_order_reviews",
-                "raw_orders",
                 "raw_order_items",
             ],
             outputs='pre_order_reviews',
@@ -61,11 +60,7 @@ def create_pipeline(**kwargs) -> Pipeline:
         ),
         node(
             func=preprocessing_sellers,
-            inputs=[
-                "raw_sellers",
-                "raw_orders",
-                "raw_order_items",
-            ],
+            inputs="raw_sellers",
             outputs='pre_sellers',
             name="preprocessing_sellers_node"
         ),
