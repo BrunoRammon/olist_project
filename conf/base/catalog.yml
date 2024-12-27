@@ -5,3 +5,15 @@
 "pre_{name}":
   type: pandas.ParquetDataset
   filepath: data/02_intermediate/{name}.parquet
+
+"feat_modeling_{name}":
+  type: pandas.ParquetDataset
+  filepath: data/04_feature/modeling_{name}.parquet
+
+modeling_audience:
+  type: pandas.ParquetDataset
+  filepath: data/03_primary/modeling_audience.parquet
+
+modeling_spine:
+  type: pandas.ParquetDataset
+  filepath: data/03_primary/modeling_spine.parquet

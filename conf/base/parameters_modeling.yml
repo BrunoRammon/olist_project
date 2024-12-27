@@ -3,3 +3,8 @@
 #
 # Documentation for this file format can be found in "Parameters"
 # Link: https://docs.kedro.org/en/0.19.10/configuration/parameters.html
+
+modeling:
+  start_cohort: 201710
+  split_cohort: 201802
+  end_cohort: 201803

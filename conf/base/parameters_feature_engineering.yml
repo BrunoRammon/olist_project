@@ -3,3 +3,11 @@
 #
 # Documentation for this file format can be found in "Parameters"
 # Link: https://docs.kedro.org/en/0.19.10/configuration/parameters.html
+
+feature_engineering:
+  historical_period: 9
+  time_windows: [3, 6, 9]
+  performance_period: 6
+  orders:
+    id_col: 'seller_id'
+    cohort_info_col: 'cohort_info'

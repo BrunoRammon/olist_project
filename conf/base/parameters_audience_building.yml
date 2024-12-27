@@ -3,3 +3,12 @@
 #
 # Documentation for this file format can be found in "Parameters"
 # Link: https://docs.kedro.org/en/0.19.10/configuration/parameters.html
+
+audience_building:
+  cohort_info_col: 'cohort_info'
+  cohort_col: 'cohort'
+  id_col: 'seller_id'
+  filters_specs:
+    flag_feature_1:
+      filter_column_name: flag_has_delivered_order_m9
+      select_values: [1]
