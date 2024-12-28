@@ -4,7 +4,16 @@ generated using Kedro 0.19.10
 """
 
 from kedro.pipeline import Pipeline, pipeline, node
-from .nodes import build_target, build_features_orders
+from .nodes import (
+    build_target,
+    build_features_orders,
+    build_features_items,
+    build_features_reviews,
+    build_features_payments,
+    build_features_customers,
+    build_features_geolocation,
+    build_feature_table
+)
 
 
 def create_pipeline(**kwargs) -> Pipeline:
@@ -34,7 +43,93 @@ def create_pipeline(**kwargs) -> Pipeline:
                 "params:feature_engineering.orders.cohort_info_col",
                 "params:feature_engineering.time_windows",
             ],
-            outputs="feat_modeling_orders",
+            outputs="modeling_feature_orders",
             name="build_features_orders_node"
-        )
+        ),
+        node(
+            func=build_features_items,
+            inputs=[
+                "modeling_audience",
+                "params:audience_building.id_col",
+                "params:audience_building.cohort_col",
+                "pre_order_items",
+                "params:feature_engineering.items.id_col",
+                "params:feature_engineering.items.cohort_info_col",
+                "params:feature_engineering.time_windows",
+            ],
+            outputs="modeling_feature_items",
+            name="build_features_items_node"
+        ),
+        node(
+            func=build_features_reviews,
+            inputs=[
+                "modeling_audience",
+                "params:audience_building.id_col",
+                "params:audience_building.cohort_col",
+                "pre_order_reviews",
+                "params:feature_engineering.reviews.id_col",
+                "params:feature_engineering.reviews.cohort_info_col",
+                "params:feature_engineering.time_windows",
+            ],
+            outputs="modeling_feature_reviews",
+            name="build_features_reviews_node"
+        ),
+        node(
+            func=build_features_payments,
+            inputs=[
+                "modeling_audience",
+                "params:audience_building.id_col",
+                "params:audience_building.cohort_col",
+                "pre_order_payments",
+                "params:feature_engineering.payments.id_col",
+                "params:feature_engineering.payments.cohort_info_col",
+                "params:feature_engineering.time_windows",
+            ],
+            outputs="modeling_feature_payments",
+            name="build_features_payments_node"
+        ),
+        node(
+            func=build_features_customers,
+            inputs=[
+                "modeling_audience",
+                "params:audience_building.id_col",
+                "params:audience_building.cohort_col",
+                "pre_customers",
+                "params:feature_engineering.customers.id_col",
+                "params:feature_engineering.customers.cohort_info_col",
+                "params:feature_engineering.time_windows",
+            ],
+            outputs="modeling_feature_customers",
+            name="build_features_customers_node"
+        ),
+        node(
+            func=build_features_geolocation,
+            inputs=[
+                "modeling_audience",
+                "params:audience_building.id_col",
+                "params:audience_building.cohort_col",
+                "pre_geolocation",
+                "params:feature_engineering.geolocation.id_col",
+                "params:feature_engineering.geolocation.cohort_info_col",
+                "params:feature_engineering.time_windows",
+            ],
+            outputs="modeling_feature_geolocation",
+            name="build_features_geolocation_node"
+        ),
+        node(
+            func=build_feature_table,
+            inputs=[
+                "modeling_audience",
+                "modeling_feature_orders",
+                "modeling_feature_items",
+                "modeling_feature_reviews",
+                "modeling_feature_payments",
+                "modeling_feature_customers",
+                "modeling_feature_geolocation",
+                "params:audience_building.id_col",
+                "params:audience_building.cohort_col",
+            ],
+            outputs="modeling_feature_table",
+            name="build_feature_table_node"
+        ),
     ])

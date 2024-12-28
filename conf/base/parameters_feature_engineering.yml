@@ -11,3 +11,18 @@ feature_engineering:
   orders:
     id_col: 'seller_id'
     cohort_info_col: 'cohort_info'
+  items:
+    id_col: 'seller_id'
+    cohort_info_col: 'cohort_info'
+  payments:
+    id_col: 'seller_id'
+    cohort_info_col: 'cohort_info'
+  reviews:
+    id_col: 'seller_id'
+    cohort_info_col: 'cohort_info'
+  customers:
+    id_col: 'seller_id'
+    cohort_info_col: 'cohort_info'
+  geolocation:
+    id_col: 'seller_id'
+    cohort_info_col: 'cohort_info'
