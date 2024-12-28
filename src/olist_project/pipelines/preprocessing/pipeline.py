@@ -10,20 +10,13 @@ from .nodes import (
     preprocessing_orders,
     preprocessing_payments,
     preprocessing_reviews,
-    preprocessing_sellers
+    preprocessing_sellers,
+    preprocessing_geolocation
 )
 
 
 def create_pipeline(**kwargs) -> Pipeline:
     return pipeline([
-        node(
-            func=preprocessing_customers,
-            inputs=["raw_customers",
-                    "raw_orders",
-                    "raw_order_items"],
-            outputs='pre_customers',
-            name="preprocessing_customers_node"
-        ),
         node(
             func=preprocessing_items,
             inputs=["raw_order_items",
@@ -33,9 +26,16 @@ def create_pipeline(**kwargs) -> Pipeline:
             name="preprocessing_order_items_node"
         ),
         node(
+            func=preprocessing_customers,
+            inputs=["raw_customers",
+                    "pre_order_items"],
+            outputs='pre_customers',
+            name="preprocessing_customers_node"
+        ),
+        node(
             func=preprocessing_orders,
             inputs=["raw_orders",
-                    "raw_order_items"],
+                    "pre_order_items"],
             outputs='pre_orders',
             name="preprocessing_orders_node"
         ),
@@ -43,8 +43,7 @@ def create_pipeline(**kwargs) -> Pipeline:
             func=preprocessing_payments,
             inputs=[
                 "raw_order_payments",
-                "raw_orders",
-                "raw_order_items",
+                "pre_order_items",
             ],
             outputs='pre_order_payments',
             name="preprocessing_order_payments_node"
@@ -53,7 +52,7 @@ def create_pipeline(**kwargs) -> Pipeline:
             func=preprocessing_reviews,
             inputs=[
                 "raw_order_reviews",
-                "raw_order_items",
+                "pre_order_items",
             ],
             outputs='pre_order_reviews',
             name="preprocessing_order_reviews_node"
@@ -63,5 +62,15 @@ def create_pipeline(**kwargs) -> Pipeline:
             inputs="raw_sellers",
             outputs='pre_sellers',
             name="preprocessing_sellers_node"
+        ),
+        node(
+            func=preprocessing_geolocation,
+            inputs=[
+                "raw_geolocation",
+                "pre_customers",
+                "pre_sellers"
+            ],
+            outputs='pre_geolocation',
+            name="preprocessing_geolocation_node"
         ),
     ])
