@@ -32,7 +32,7 @@ dataset_schemas:
     product_id: string
     product_category_name: string
     product_name_lenght: float
-    product_description_lenght: string 
+    product_description_lenght: float 
     product_photos_qty: Int64
     product_weight_g: float
     product_length_cm: float
