@@ -16,3 +16,4 @@ evidently<=0.5.1
 kaggle<=1.6.17
 kagglehub<=0.3.6
 seaborn<=0.13.2
+geopy<=2.4.1
