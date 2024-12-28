@@ -8,3 +8,5 @@ modeling:
   start_cohort: 201710
   split_cohort: 201802
   end_cohort: 201803
+  target: target_churn
+  # features_selection:

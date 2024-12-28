@@ -6,10 +6,6 @@
   type: pandas.ParquetDataset
   filepath: data/02_intermediate/{name}.parquet
 
-"feat_modeling_{name}":
-  type: pandas.ParquetDataset
-  filepath: data/04_feature/modeling_{name}.parquet
-
 modeling_audience:
   type: pandas.ParquetDataset
   filepath: data/03_primary/modeling_audience.parquet
@@ -17,3 +13,19 @@ modeling_audience:
 modeling_spine:
   type: pandas.ParquetDataset
   filepath: data/03_primary/modeling_spine.parquet
+
+"modeling_feature_{name}":
+  type: pandas.ParquetDataset
+  filepath: data/04_feature/modeling_{name}.parquet
+
+abt:
+  type: pandas.ParquetDataset
+  filepath: data/05_model_input/abt.parquet
+
+"{name}_train":
+  type: pandas.ParquetDataset
+  filepath: data/05_model_input/{name}_train.parquet
+
+"{name}_test_oot":
+  type: pandas.ParquetDataset
+  filepath: data/05_model_input/{name}_test_oot.parquet
