@@ -1,6 +1,5 @@
 import warnings
 from enum import Enum,auto
-# import mlflow.data.pandas_dataset
 import pandas as pd
 import numpy as np
 from lightgbm import LGBMClassifier
@@ -26,8 +25,7 @@ import mlflow
 import optuna
 from kedro.config import OmegaConfigLoader
 from kedro.framework.project import settings
-from modelo_credito_rede_otimizacao.utils import plot_metrics
-from tabulate import tabulate
+from olist_project.utils import plot_metrics
 
 project_path = '/home/bruno/Documents/Datarisk/Projetos/ipiranga/modelo-credito-rede/'
 conf_path = project_path + '/' + settings.CONF_SOURCE
