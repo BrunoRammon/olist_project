@@ -158,6 +158,6 @@ venv.bak/
 .mypy_cache/
 
 # mlflow local runs
-mlruns/*
+mlflow/*
 
 session_store.db
