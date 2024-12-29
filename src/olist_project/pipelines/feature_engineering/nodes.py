@@ -885,6 +885,27 @@ def build_features_geolocation(
 
     return df_features
 
+def build_features_sellers(
+        df_audience: pd.DataFrame,
+        id_audience_col: str,
+        cohort_audience_col: str,
+        df_sellers: pd.DataFrame,
+        id_sellers_col: str)-> pd.DataFrame:
+    """
+    """
+
+    df_features = (
+        df_audience[[id_audience_col,cohort_audience_col]]
+        .merge(
+            df_sellers[[id_sellers_col, 'seller_state']]
+            .rename(columns={id_sellers_col: id_audience_col}),
+            on=[id_audience_col],
+            how='left'
+        )
+    )
+
+    return df_features
+
 def _merge_features(
     inference_data: pd.DataFrame,
     features_data: pd.DataFrame,
@@ -941,6 +962,7 @@ def build_feature_table(
     df_feat_payments: pd.DataFrame,
     df_feat_customers: pd.DataFrame,
     df_feat_geolocation: pd.DataFrame,
+    df_feat_sellers: pd.DataFrame,
     id_audience_col: str,
     cohort_audience_col: str,
 ) -> pd.DataFrame:
@@ -955,6 +977,7 @@ def build_feature_table(
         .pipe(_merge_features, df_feat_payments, "pay", [id_audience_col, cohort_audience_col])
         .pipe(_merge_features, df_feat_customers, "ctm", [id_audience_col, cohort_audience_col])
         .pipe(_merge_features, df_feat_geolocation, "geo", [id_audience_col, cohort_audience_col])
+        .pipe(_merge_features, df_feat_sellers, "sel", [id_audience_col, cohort_audience_col])
         .pipe(_feature_table_final_treatment)
         .reset_index(drop=True)
     )

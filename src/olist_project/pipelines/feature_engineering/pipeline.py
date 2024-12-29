@@ -12,6 +12,7 @@ from .nodes import (
     build_features_payments,
     build_features_customers,
     build_features_geolocation,
+    build_features_sellers,
     build_feature_table
 )
 
@@ -117,6 +118,18 @@ def create_pipeline(**kwargs) -> Pipeline:
             name="build_features_geolocation_node"
         ),
         node(
+            func=build_features_sellers,
+            inputs=[
+                "modeling_audience",
+                "params:audience_building.id_col",
+                "params:audience_building.cohort_col",
+                "pre_sellers",
+                "params:feature_engineering.sellers.id_col",
+            ],
+            outputs="modeling_feature_sellers",
+            name="build_features_sellers_node"
+        ),
+        node(
             func=build_feature_table,
             inputs=[
                 "modeling_audience",
@@ -126,6 +139,7 @@ def create_pipeline(**kwargs) -> Pipeline:
                 "modeling_feature_payments",
                 "modeling_feature_customers",
                 "modeling_feature_geolocation",
+                "modeling_feature_sellers",
                 "params:audience_building.id_col",
                 "params:audience_building.cohort_col",
             ],

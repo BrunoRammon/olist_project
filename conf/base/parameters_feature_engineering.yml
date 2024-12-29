@@ -26,3 +26,5 @@ feature_engineering:
   geolocation:
     id_col: 'seller_id'
     cohort_info_col: 'cohort_info'
+  sellers:
+    id_col: 'seller_id'
