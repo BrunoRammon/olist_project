@@ -83,6 +83,46 @@ def build_target(
 
     return df_spine
 
+def _compute_slope(gr, value_col):
+    len_col = len(gr[value_col])
+    x = np.linspace(1,len_col,num=len_col)
+    y = gr[value_col]
+    x_mean = x.mean()
+    y_mean = y.mean()
+    numerator = np.sum((x - x_mean) * (y - y_mean))
+    denominator = np.sum((x - x_mean) ** 2)
+    return numerator / denominator if denominator != 0 else np.nan
+
+def _build_slope_feature_for_cohort_time_window(df_historical: pd.DataFrame,
+                                                id_col: str,
+                                                cohort_col: str,
+                                                current_cohort: int,
+                                                time_window: int,
+                                                value_col: str,
+                                                agg_value_func: str,
+                                                fillna_value: float=0.0,
+                                                )-> pd.DataFrame:
+    initial_cohort = _cohort_offset(current_cohort,-time_window)
+    return (
+        df_historical
+        .query(f'({cohort_col}>={initial_cohort})&({cohort_col}<{current_cohort})')
+        .groupby([id_col,cohort_col],as_index=False)
+        .agg(
+            total = (value_col, agg_value_func)
+        )
+        .sort_values(cohort_col)
+        .pivot(index=id_col,columns=cohort_col,values='total')
+        .fillna(fillna_value)
+        .reset_index()
+        .melt(id_vars=id_col, value_name='total')
+        .groupby(id_col)
+        .apply(_compute_slope,value_col='total', include_groups=False)
+        .reset_index(name=f'slope_{agg_value_func}_{value_col}_m{time_window}')
+        .assign(
+            cohort=current_cohort
+        )
+    )
+
 def _build_features_for_cohort_time_window(df_historical: pd.DataFrame,
                                            id_col: str,
                                            cohort_col: str,
@@ -92,7 +132,7 @@ def _build_features_for_cohort_time_window(df_historical: pd.DataFrame,
                                            agg_functions: Dict[str,Tuple[str,str]],
                                            post_assign: Dict[str,Callable],
                                            post_drop_cols: List[str])-> pd.DataFrame:
-    post_assign_cp = dict(post_assign) 
+    post_assign_cp = dict(post_assign)
     post_assign_cp['cohort'] = current_cohort
     initial_cohort = _cohort_offset(current_cohort,-time_window)
     return (
@@ -145,6 +185,8 @@ def _build_features_orders_for_cohort(
     agg_functions = {
         f'total_orders_m{time_window}': ('order_id','nunique'),
 
+        f'nunique_cohorts_m{time_window}': (f'{cohort_orders_col}','nunique'),
+
         f'mean_estimated_days_to_order_delivery_m{time_window}': ('estimated_days_to_order_delivery','mean'),
         f'std_estimated_days_to_order_delivery_m{time_window}': ('estimated_days_to_order_delivery','std'),
         f'max_estimated_days_to_order_delivery_m{time_window}': ('estimated_days_to_order_delivery','max'),
@@ -174,9 +216,15 @@ def _build_features_orders_for_cohort(
     }
 
     post_assign = {
-        f'recencia_m{time_window}': lambda df: (
+        f'recency_m{time_window}': lambda df: (
             dt_cohort - df[f'max_order_purchase_timestamp_m{time_window}']
         ).dt.days,
+        f'mean_frequency_m{time_window}': lambda df: (
+            df[f'total_orders_m{time_window}']/time_window
+        ),
+        f'rate_nunique_cohorts_m{time_window}': lambda df: (
+            df[f'nunique_cohorts_m{time_window}']/time_window
+        ),
     }
 
     post_drop_cols = [
@@ -193,6 +241,20 @@ def _build_features_orders_for_cohort(
                                                agg_functions,
                                                post_assign,
                                                post_drop_cols)
+        .merge(
+            _build_slope_feature_for_cohort_time_window(
+                df_orders,
+                id_orders_col,
+                cohort_orders_col,
+                current_cohort,
+                time_window,
+                'order_id',
+                'nunique',
+                fillna_value=0.0
+            ),
+            on=[id_orders_col,'cohort'],
+            how='left'
+        )                 
     )
 
     return df_orders_cohort_time_window
@@ -321,6 +383,34 @@ def _build_features_items_for_cohort(
                                                agg_functions,
                                                post_assign,
                                                post_drop_cols)
+        .merge(
+            _build_slope_feature_for_cohort_time_window(
+                df_items,
+                id_items_col,
+                cohort_items_col,
+                current_cohort,
+                time_window,
+                'price',
+                'sum',
+                fillna_value=0.0
+            ),
+            on=[id_items_col,'cohort'],
+            how='left'
+        )
+        .merge(
+            _build_slope_feature_for_cohort_time_window(
+                df_items,
+                id_items_col,
+                cohort_items_col,
+                current_cohort,
+                time_window,
+                'product_id',
+                'count',
+                fillna_value=0.0
+            ),
+            on=[id_items_col,'cohort'],
+            how='left'
+        )
     )
 
     return df_items_cohort_time_window
@@ -378,9 +468,7 @@ def _build_features_reviews_for_cohort(
         current_cohort: int,
         time_window: int
 )-> pd.DataFrame:
-    # 'review_id', 'order_id', 'review_score', 'review_comment_title',
-    #    'review_comment_message', 'seller_id', 'order_status', 'cohort_info',
-    #    'delay_answer_review', 'days_to_review',days_to_sent_survey
+
     pre_assign = {}
     agg_functions = {
         f'nunique_review_m{time_window}': ('review_id','nunique'),
