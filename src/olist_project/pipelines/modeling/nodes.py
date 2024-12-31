@@ -74,6 +74,12 @@ def _column_object_to_category(df: pd.DataFrame)-> pd.DataFrame:
 
     return df.apply(lambda col: col.astype('category') if col.dtype in ['object','string'] else col)
 
+def _column_numeric_to_float(df: pd.DataFrame)-> pd.DataFrame:
+    """
+    """
+
+    return df.apply(lambda col: col.astype('float') if col.name in list(df.select_dtypes('number').columns) else col)
+
 def train_oot_split(
     abt: pd.DataFrame,
     start_cohort: int,
@@ -183,7 +189,12 @@ def train_oot_split(
     mask_train = (id_model[cohort_col] >= start_cohort) & (id_model[cohort_col] <= split_cohort)
     mask_oot = (id_model[cohort_col] > split_cohort) & (id_model[cohort_col] <= final_cohort)
 
-    x_train_duplicated_mask = _column_object_to_category(X[mask_train]).duplicated()
+    x_train_duplicated_mask = (
+        X[mask_train]
+        .pipe(_column_object_to_category)
+        .pipe(_column_numeric_to_float)
+        .duplicated()
+    )
     X = X.filter(col_features)
     logger = logging.getLogger(__name__)
     message = (
@@ -192,13 +203,20 @@ def train_oot_split(
     )
     logger.info(message)
     X_train = (
-        _column_object_to_category(X[mask_train & (~x_train_duplicated_mask)])
+        X[mask_train & (~x_train_duplicated_mask)]
+        .pipe(_column_object_to_category)
+        .pipe(_column_numeric_to_float)
         .reset_index(drop=True)
     )
     y_train = y[mask_train & (~x_train_duplicated_mask)].reset_index(drop=True)
     id_model_train = id_model[mask_train & (~x_train_duplicated_mask)].reset_index(drop=True)
 
-    X_oot = _column_object_to_category(X[mask_oot].reset_index(drop=True))
+    X_oot = (
+        X[mask_oot]
+        .pipe(_column_object_to_category)
+        .pipe(_column_numeric_to_float)
+        .reset_index(drop=True)
+    )
     y_oot = y[mask_oot].reset_index(drop=True)
     id_model_oot = id_model[mask_oot].reset_index(drop=True)
 
