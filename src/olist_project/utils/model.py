@@ -1,4 +1,5 @@
 import warnings
+from typing import List, Dict, Any
 from enum import Enum,auto
 import pandas as pd
 import numpy as np
@@ -6,7 +7,7 @@ from lightgbm import LGBMClassifier
 from xgboost import XGBClassifier
 from catboost import CatBoostClassifier
 from feature_engine.encoding import RareLabelEncoder, CountFrequencyEncoder
-from feature_engine.imputation import CategoricalImputer
+from feature_engine.imputation import CategoricalImputer, AddMissingIndicator
 from feature_engine.discretisation import EqualFrequencyDiscretiser
 from feature_engine.wrappers import SklearnTransformerWrapper
 from sklearn.pipeline import Pipeline
@@ -16,6 +17,9 @@ from sklearn.model_selection import cross_val_predict, cross_val_score
 from sklearn.model_selection import StratifiedKFold
 from sklearn.utils.validation import check_is_fitted
 from sklearn.preprocessing import QuantileTransformer
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     roc_auc_score, average_precision_score, brier_score_loss, log_loss
 )
@@ -25,6 +29,7 @@ import mlflow
 import optuna
 from kedro.config import OmegaConfigLoader
 from kedro.framework.project import settings
+from tabulate import tabulate
 from olist_project.utils import plot_metrics
 
 project_path = '/home/bruno/Documents/Datarisk/Projetos/ipiranga/modelo-credito-rede/'
@@ -171,6 +176,9 @@ class ModelType(Enum):
     LGBM = "lgbm"
     XGB = "xgb"
     CAT = "cat"
+    RF = "random_forest"
+    DT = "decision_tree"
+    LOGREG = "logistic_regression"
 
     def get_model(self, params):
         if self == ModelType.LGBM:
@@ -179,7 +187,13 @@ class ModelType(Enum):
             return XGBClassifier(verbosity=0, random_state=RANDOM_STATE, **params)
         elif self == ModelType.CAT:
             return CatBoostClassifier(verbose=0, random_state=RANDOM_STATE, **params)
-    
+        elif self == ModelType.RF:
+            return RandomForestClassifier(verbose=0, random_state=RANDOM_STATE, **params)
+        elif self == ModelType.DT:
+            return DecisionTreeClassifier(random_state=RANDOM_STATE, **params)
+        elif self == ModelType.LOGREG:
+            return LogisticRegression(verbose=0, random_state=RANDOM_STATE, **params)
+
     def get_default_hyperparameter_space(self, trial):
         if self == ModelType.LGBM:
             return {
@@ -221,9 +235,23 @@ class ModelType(Enum):
 def _inf_to_nan(X):
     return X.replace([np.inf, -np.inf], np.nan)
 
-def get_model(X_dev, params=None, model_type: ModelType = ModelType.LGBM):
-    cat_vars = [col for col in X_dev.select_dtypes('category').columns]
-    cat_var_exp_tn = [col for col in cat_vars if col != 'CAD_TIPO_NEGOCIO']
+def get_model(X_dev,
+              cat_vars: List[str],
+              num_vars: List[str],
+              params: Dict[str, Any]=None,
+              model_type: ModelType = ModelType.LGBM,
+              encoder = None,
+              numerical_imputer = None,):
+
+    if not set(cat_vars + num_vars).issubset(set(X_dev.columns)):
+        message = (
+            " cat_vars and num_vars must be a subset of X_dev.columns"
+        )
+        raise ValueError(message)
+
+    if params is None:
+        params = dict()
+
     pipe_steps = []
     if model_type == ModelType.XGB:
         inf_to_nan_transformer = FunctionTransformer(_inf_to_nan)
@@ -232,45 +260,25 @@ def get_model(X_dev, params=None, model_type: ModelType = ModelType.LGBM):
              SklearnTransformerWrapper(transformer=inf_to_nan_transformer))
         )
     if cat_vars:
-        pipe_steps.append(('imputer',CategoricalImputer(variables=cat_vars)))
-    if 'CAD_TIPO_NEGOCIO' in cat_vars:
-        pipe_steps.append(
-            ('tn_label_encoder', RareLabelEncoder(max_n_categories=4,n_categories=5,
-                                                  tol=0.0001,
-                                                  replace_with='OUTROS',
-                                                  variables='CAD_TIPO_NEGOCIO'))
-        )
-    if cat_var_exp_tn:
-        pipe_steps.append(('encoder',RareLabelEncoder(variables=cat_var_exp_tn)))
+        pipe_steps.append(('cat_imputer', CategoricalImputer(variables=cat_vars)))
+        pipe_steps.append(('rare_encoder', RareLabelEncoder(variables=cat_vars)))
 
-    if not params:
-        params = dict()
+    if numerical_imputer:
+        if model_type == ModelType.LOGREG:
+            pipe_steps.append(('missing_indicator', AddMissingIndicator()))
+        pipe_steps.append(('num_imputer', numerical_imputer))
 
-    if cat_vars and (model_type == ModelType.XGB):
+    if cat_vars and (encoder is not None):
         pipe_steps.append(
-            ('encoder_freq', CountFrequencyEncoder(variables=cat_vars)),
+            ('encoder', encoder),
         )
+    if cat_vars and model_type == ModelType.CAT:
+        params['cat_features'] = cat_vars
     pipe_steps.append(('estimator',model_type.get_model(params)))
 
     model = Pipeline(pipe_steps)
 
     return model
-
-def _get_lgbm_hyperparameters(trial):
-    params = {
-        'is_unbalance': trial.suggest_categorical('is_unbalance', [True, False]),
-        'n_estimators': trial.suggest_int('n_estimators', 2, 60),
-        'learning_rate': trial.suggest_float('learning_rate', 0.001, 0.9, log=True),
-        'max_depth': trial.suggest_int('max_depth', 2, 200),
-        'reg_alpha': trial.suggest_float('reg_alpha', 1e-3, 10000.0, log=True),
-        'reg_lambda': trial.suggest_float('reg_lambda', 1e-3, 1000.0, log=True),
-        'num_leaves': trial.suggest_int('num_leaves', 5, 300),
-        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.1, 0.8),
-        'subsample': trial.suggest_float('subsample', 0.3, 1.0),
-        'subsample_freq': trial.suggest_int('subsample_freq', 1, 10),
-        'min_child_samples': trial.suggest_int('min_child_samples', 1, 60),
-    }
-    return params
 
 def objective(trial, X_dev, y_dev, cohort_dev=None,
               validation_type=MetricType.TEST_CV_PREDICT,
@@ -508,6 +516,7 @@ def mlflow_experiment_run_cv(model, X_dev, X_oot, y_dev, y_oot,
                                  log_model=False,
                                  metric_plots=True,
                                  shap_plots=True,
+                                 learning_curve_plot=True,
                                  approval_rate_threshold=0.85,
                                  cat_group_dev=None,
                                  cat_group_oot=None,
@@ -668,6 +677,7 @@ def mlflow_experiment_run_cv(model, X_dev, X_oot, y_dev, y_oot,
                                                                group_test=group_dev,
                                                                group_val=group_oot)
             )
+
         if shap_plots:
             print('Generating shap plots...')
             X_dev_new_sampled = X_dev_new.sample(20000) if len(X_dev_new) > 20000 else X_dev_new
@@ -678,13 +688,23 @@ def mlflow_experiment_run_cv(model, X_dev, X_oot, y_dev, y_oot,
                                                                       X_oot_new_sampled,
                                                                       return_figure=mlflow_log)
 
+        if learning_curve_plot:
+            print('Generating learning curve...')
+            learning_curve_fig = plot_metrics.learning_curve_plot(model, X_dev_new, y_dev, skf,
+                                                             return_fig=mlflow_log,)
+
     if mlflow_log:
+
         if metric_plots:
             for fig_name, fig in metrics_figs.items():
                 mlflow.log_figure(fig, f'metrics/{fig_name}')
         if shap_plots:
             for fig_name, fig in shap_figs.items():
                 mlflow.log_figure(fig, f'shap/{fig_name}')
+        if learning_curve_plot:
+            for fig_name, fig in learning_curve_fig.items():
+                mlflow.log_figure(fig, f'learning_curve/{fig_name}')
+
         mlflow.log_metric("auc-dev", auc_dev)
         mlflow.log_metric("ks-dev", ks_dev)
         mlflow.log_metric("aucpr-dev", aucpr_dev)
@@ -707,6 +727,7 @@ def mlflow_experiment_run_cv(model, X_dev, X_oot, y_dev, y_oot,
         mlflow.log_metric("recall_0-oot", recall_oot_neg)
         mlflow.log_metric("inad_1-oot", inad_1)
         mlflow.log_metric("inad_0-oot", inad_0)
+
         if isinstance(cat_group_dev, pd.Series):
             for cat in df_performance_tn_dev[cat_group_dev.name].unique():
                 auc = df_performance_tn_dev.query(f'{cat_group_dev.name}=="{cat}"')['AUC'].iloc[0]
@@ -757,4 +778,3 @@ def mlflow_experiment_run_cv(model, X_dev, X_oot, y_dev, y_oot,
                 mlflow.log_figure(fig, f'optimization/{fig_name}.html')
     if mlflow_log:
         mlflow.end_run()
-
