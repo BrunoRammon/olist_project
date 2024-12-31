@@ -10,6 +10,7 @@ from tabulate import tabulate
 import plotly.graph_objects as go
 from scipy.stats import ks_2samp
 from plotly.subplots import make_subplots
+from sklearn.model_selection import learning_curve
 
 def _configure_axes(ax, title_names, secundary_color, y_inf_lim=0.0,
                    turn_off_legend=True, xlabelrotation=0.0,
@@ -294,8 +295,8 @@ def _train_test_validation_metric_curve(df_train_probas, df_test_probas, df_val_
 
     fig = plt.figure(figsize=(20,6))
     data = {'treino':df_train_probas,
-            'teste':df_test_probas,
-            'validation':df_val_probas}
+            'validação':df_test_probas,
+            'teste': df_val_probas}
     for i,(name,df) in enumerate(data.items(), start=1):
         ax = plt.subplot(1,3,i)
         y_probas_0 = 1-df['probas']
@@ -486,7 +487,7 @@ def train_test_validation_shap_graph(model, X_train, X_test, X_val,
         X_val_transformed = X_val
         model_aux = model
 
-    names_list = ['treino','teste','validação']
+    names_list = ['treino','validação','teste']
     Xs = [X_train_transformed, X_test_transformed, X_val_transformed]
     dict_exp_shap_values = dict()
     for name, X in zip(names_list,Xs):
@@ -542,7 +543,7 @@ def _train_test_validation_volumetry_performance(
     ks_func = lambda x: ks_2samp(x['probas'][x['target'] == 0], x['probas'][x['target'] == 1]).statistic
 
     for df, group,line_type  in zip([df_train_probas,df_test_probas,df_val_probas],
-                                    ['Treino','Teste','Validação'],
+                                    ['Treino','Validação','Teste'],
                                     ['solid','dash','dot']):
         df_aux = (
             df
@@ -633,7 +634,7 @@ def _train_test_validation_volumetry_performance_by_group(
                                     "KS"))
 
     for df, group,line_type  in zip([df_train_probas,df_test_probas,df_val_probas],
-                                    ['Treino', 'Teste','Validação'],
+                                    ['Treino', 'Validação', 'Teste'],
                                     ['solid','dash','dot']):
         df_aux = (
             df
@@ -705,7 +706,7 @@ def _train_test_validation_ordenation_graphs_new(
 ):
     
     fig = make_subplots(rows=1, cols=3,
-                        subplot_titles=("Treino", "Teste", "Validação"),
+                        subplot_titles=("Treino", "Validação", "Teste"),
                         specs=[[{"secondary_y": True}, {"secondary_y": True},
                                 {"secondary_y": True}]])
 
@@ -767,6 +768,156 @@ def _train_test_validation_ordenation_graphs_new(
         fig.write_image(f"{save_to_file}")
     if return_fig:
         return fig
+
+def learning_curve_plot(model, X_train, y_train, cv,
+                       save_to_file=None,
+                       saving_folder='.',
+                       return_fig=False):
+    """
+    """
+
+    train_sizes, train_scores, test_scores, fit_times, score_times = learning_curve(
+        model, X_train, y_train, train_sizes=np.array([0.1, 0.33, 0.55, 0.78, 1.]),
+        cv=cv, return_times=True
+    )
+
+    train_scores_mean = train_scores.mean(axis=1)
+    train_scores_std = train_scores.std(axis=1)
+    train_scores_upper = train_scores_mean+train_scores_std
+    train_scores_lower = train_scores_mean-train_scores_std
+
+    test_scores_mean = test_scores.mean(axis=1)
+    test_scores_std = test_scores.std(axis=1)
+    test_scores_upper = test_scores_mean+test_scores_std
+    test_scores_lower = test_scores_mean-test_scores_std
+
+    fit_times_mean = fit_times.mean(axis=1)
+    fit_times_std = fit_times.std(axis=1)
+    fit_times_upper = fit_times_mean+fit_times_std
+    fit_times_lower = fit_times_mean-fit_times_std
+
+    score_times_mean = score_times.mean(axis=1)
+    score_times_std = score_times.std(axis=1)
+    score_times_upper = score_times_mean+score_times_std
+    score_times_lower = score_times_mean-score_times_std
+
+    fig = make_subplots(rows=1, cols=3,
+                        subplot_titles=("Curva de aprendizado", "Tempo de treinamento",
+                                        "Tempo de escoragem"),)
+
+    fig.add_trace(
+        go.Scatter(
+            x=train_sizes,
+            y=train_scores_mean,
+            name="Treino",
+            mode='lines',
+            marker_color='blue'
+        ),
+        row=1, col=1
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=np.concatenate([train_sizes, train_sizes[::-1]]),
+            y=np.concatenate([train_scores_upper, train_scores_lower[::-1]]),
+            fill='toself',
+            fillcolor='rgba(0, 100, 250, 0.3)',  # Transparent blue
+            line={'color':'rgba(255,255,255,0)'},  # No border line
+            hoverinfo="skip",  # Skip hover for this area
+            showlegend=False
+        ),
+        row=1, col=1
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=train_sizes,
+            y=test_scores_mean,
+            name="Validação",
+            mode='lines',
+            marker_color='orange',
+        ),
+        row=1, col=1
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=np.concatenate([train_sizes, train_sizes[::-1]]),
+            y=np.concatenate([test_scores_upper, test_scores_lower[::-1]]),
+            fill='toself',
+            fillcolor='rgba(255, 127, 80, 0.3)',  # Transparent orange
+            line={'color':'rgba(255,255,255,0)'},  # No border line
+            hoverinfo="skip",  # Skip hover for this area
+            showlegend=False
+        ),
+        row=1, col=1
+    )
+    fig.update_yaxes(range=[0, None])
+
+    #### FIT TIMES
+
+    fig.add_trace(
+        go.Scatter(
+            x=train_sizes,
+            y=fit_times_mean,
+            name="Treino",
+            mode='lines',
+            marker_color='blue',
+            showlegend=False
+        ),
+        row=1, col=2
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=np.concatenate([train_sizes, train_sizes[::-1]]),
+            y=np.concatenate([fit_times_upper, fit_times_lower[::-1]]),
+            fill='toself',
+            fillcolor='rgba(0, 100, 250, 0.3)',  # Transparent blue
+            line={'color':'rgba(255,255,255,0)'},  # No border line
+            hoverinfo="skip",  # Skip hover for this area
+            showlegend=False
+        ),
+        row=1, col=2
+    )
+
+
+    #### SCORE TIMES
+
+    fig.add_trace(
+        go.Scatter(
+            x=train_sizes,
+            y=score_times_mean,
+            name="Tempo",
+            mode='lines',
+            marker_color='orange',
+            showlegend=False
+        ),
+        row=1, col=3
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=np.concatenate([train_sizes, train_sizes[::-1]]),
+            y=np.concatenate([score_times_upper, score_times_lower[::-1]]),
+            fill='toself',
+            fillcolor='rgba(255, 127, 80, 0.3)',  # Transparent orange
+            line={'color':'rgba(255,255,255,0)'},  # No border line
+            hoverinfo="skip",  # Skip hover for this area
+            showlegend=False
+        ),
+        row=1, col=3
+    )
+    fig.update_layout(
+        width=800,
+        height=300
+    )
+
+    fig.show()
+
+    filename = 'learning_curve.html'
+    if save_to_file:
+        save_to_file = f"{saving_folder}/{filename}" if save_to_file else None
+        fig.write_image(f"{save_to_file}")
+    if return_fig:
+        return {filename: fig}
+
 def train_test_validation_metrics_new(y_train, y_test, y_val,
                                       y_probas_train, y_probas_test, y_probas_val, 
                                       cohort_train, cohort_test, cohort_val,
@@ -815,8 +966,8 @@ def train_test_validation_metrics_new(y_train, y_test, y_val,
     auc_test = _calculate_auc(df_test_probas)
     auc_val = _calculate_auc(df_val_probas)
     print(f'ROC AUC (treino): {auc_train}')
-    print(f'ROC AUC (teste): {auc_test}')
-    print(f'ROC AUC (validação): {auc_val}')
+    print(f'ROC AUC (validação): {auc_test}')
+    print(f'ROC AUC (teste): {auc_val}')
 
     print()
     filename = 'train_test_validation_volumetry_auc_over_time.html'
