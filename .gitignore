@@ -160,4 +160,7 @@ venv.bak/
 # mlflow local runs
 mlflow/*
 
+# catboost
+**/catboost_info/
+
 session_store.db
