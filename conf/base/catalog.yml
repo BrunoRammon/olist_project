@@ -35,5 +35,115 @@ custom_lgbm_model:
   filepath: data/06_models/custom_lgbm_model.pkl
 
 output:
-  type: pickle.PickleDataset
-  filepath: data/07_model_output/output.pkl
+  type: pandas.ParquetDataset
+  filepath: data/07_model_output/output.parquet
+
+#############################################################################################################
+########################################    MONITORING   ####################################################
+#############################################################################################################
+
+scored_history_partitioned:
+  type: partitions.PartitionedDataset
+  dataset: pandas.ParquetDataset
+  path: data/08_reporting/scored_history_partitioned.parquet
+
+target_history_partitioned:
+  type: partitions.PartitionedDataset
+  dataset: pandas.ParquetDataset
+  path: data/08_reporting/target_history_partitioned.parquet
+
+scored_history:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/scored_history.parquet
+
+target_history:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/target_history.parquet
+
+metrics_by_month:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/performance_monitoring/metrics_by_month.parquet
+
+metrics_by_period:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/performance_monitoring/metrics_by_period.parquet
+
+rating_metrics_by_month:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/performance_monitoring/rating_metrics_by_month.parquet
+
+rating_metrics_by_period:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/performance_monitoring/rating_metrics_by_period.parquet
+
+metrics_plot:
+  type: plotly.HTMLDataset
+  filepath: data/08_reporting/performance_monitoring/metrics_plot.html
+
+rating_metrics_plot:
+  type: plotly.HTMLDataset
+  filepath: data/08_reporting/performance_monitoring/rating_metrics_plot.html
+
+feature_metrics_by_month:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/performance_monitoring/feature_metrics_by_month.parquet
+
+feature_metrics_by_period:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/performance_monitoring/feature_metrics_by_period.parquet
+
+feature_metrics_plot:
+  type: plotly.HTMLDataset
+  filepath: data/08_reporting/performance_monitoring/feature_metrics_plot.html
+
+features_iv_plot:
+  type: plotly.HTMLDataset
+  filepath: data/08_reporting/performance_monitoring/features_iv_plot.html
+
+customers_volume_by_month:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/prediction_monitoring/customers_volume_by_month.parquet
+
+customers_volume_by_month_plot:
+  type: plotly.HTMLDataset
+  filepath: data/08_reporting/prediction_monitoring/customers_volume_by_month_plot.html
+
+ratings_volume_by_month:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/prediction_monitoring/ratings_volume_by_month.parquet
+
+ratings_volume_by_month_plot:
+  type: plotly.HTMLDataset
+  filepath: data/08_reporting/prediction_monitoring/ratings_volume_by_month_plot.html
+
+migration_matrix_plot:
+  type: plotly.HTMLDataset
+  filepath: data/08_reporting/prediction_monitoring/migration_matrix_plot.html
+
+features_groups_volume_by_month:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/prediction_monitoring/features_groups_volume_by_month.parquet
+
+features_statistics_by_month:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/prediction_monitoring/features_statistics_by_month.parquet
+
+features_statistics_plot:
+  type: plotly.HTMLDataset
+  filepath: data/08_reporting/prediction_monitoring/features_statistics_plot.html
+
+features_psi_plot:
+  type: plotly.HTMLDataset
+  filepath: data/08_reporting/prediction_monitoring/features_psi_plot.html
+
+shap_values:
+  type: pandas.ParquetDataset
+  filepath: data/08_reporting/shap_monitoring/shap_values.parquet
+
+shap_summary_plot:
+  type: matplotlib.MatplotlibWriter
+  filepath: data/08_reporting/shap_monitoring/shap_summary_plot.png
+
+shap_feature_importance_plot:
+  type: plotly.HTMLDataset
+  filepath: data/08_reporting/shap_monitoring/shap_feature_importance_plot.html
