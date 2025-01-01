@@ -3,3 +3,9 @@
 #
 # Documentation for this file format can be found in "Parameters"
 # Link: https://docs.kedro.org/en/0.19.10/configuration/parameters.html
+
+scoring:
+  audience_building: ${audience_building}
+  start_cohort: 201801 # embora 201801 e 201802 ainda estejam no período de treinamento uso esses meses na escoragem
+  end_cohort: 201809
+  target: target_churn

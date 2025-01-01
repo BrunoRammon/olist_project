@@ -33,3 +33,7 @@ abt:
 custom_lgbm_model:
   type: pickle.PickleDataset
   filepath: data/06_models/custom_lgbm_model.pkl
+
+output:
+  type: pickle.PickleDataset
+  filepath: data/07_model_output/output.pkl
