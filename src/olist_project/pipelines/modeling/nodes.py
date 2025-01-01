@@ -227,35 +227,33 @@ def train_oot_split(
 
 def train_final_model(X_train: pd.DataFrame, y_train: pd.DataFrame,
                       ratings: Union[List[float], Dict[str,float]],
-                      random_state: int, hyperparams: Dict)-> CustomLGBMClassifier:
+                      random_state: int, hyperparams: Dict,
+                      nfolds_cv: Union[int,None] = None)-> CustomLGBMClassifier:
     """
     """
     model = CustomLGBMClassifier(random_state=random_state,
                                  **hyperparams)
-    model.fit_all(X_train, y_train, ratings=ratings)
+    target_name = y_train.columns[0]
+    model.fit_all(X_train, y_train[target_name], nfolds_cv=nfolds_cv, ratings=ratings)
     return model
 
 def _create_df_results(
     trained_model: CustomLGBMClassifier,
     X: pd.DataFrame,
     y: pd.DataFrame,
-    id_model: pd.DataFrame,
-    groups: pd.Series
+    id_model: pd.DataFrame
 )-> pd.DataFrame:
     """
     Calcula os resultados do modelo dados conjuntos de X e y.
     """
 
     df_result = (
-        pd.concat([id_model, X, y, groups], axis=1)
+        pd.concat([id_model, X, y], axis=1)
         .assign(
-            PROBA = (
-                trained_model.predict_proba(X)[:,1]
+            score = (
+                trained_model.predict_score(X)
             ),
-            SCORE = (
-                trained_model.predict_score(X, transform_score_by_rating=True)
-            ),
-            RATING = (
+            rating = (
                 trained_model.predict_rating(X)
             )
         )
@@ -268,11 +266,9 @@ def model_results(
     X_train: pd.DataFrame,
     y_train: pd.DataFrame,
     id_model_train: pd.DataFrame,
-    df_tp_neg_train: pd.DataFrame,
     X_oot: pd.DataFrame,
     y_oot: pd.DataFrame,
     id_model_oot: pd.DataFrame,
-    df_tp_neg_oot: pd.DataFrame,
 )-> pd.DataFrame:
     """
     Cria a tabela de resultado de treino e validação para o modelo treinado.
@@ -294,18 +290,11 @@ def model_results(
     n_folds : int
         Número de folds usado no cálculo dos resultado para o conjunto de treino.
     """
-    # Assuming the code is inside _create_df_results or just before calling it
-
-    if (not (len(X_train) == len(y_train) == len(id_model_train)) or
-        not (len(X_oot) == len(y_oot) == len(id_model_oot))):
-        raise ValueError("Input data frames do not have matching lengths.")
 
     check_is_fitted(trained_model)
     oot_results = _create_df_results(trained_model, X_oot, y_oot,
-                                     id_model_oot,
-                                     df_tp_neg_oot['CAD_TIPO_NEGOCIO'])
+                                     id_model_oot)
     train_results = _create_df_results(trained_model, X_train, y_train,
-                                       id_model_train,
-                                       df_tp_neg_train['CAD_TIPO_NEGOCIO'])
+                                       id_model_train)
 
     return train_results, oot_results

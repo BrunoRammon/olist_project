@@ -5,8 +5,56 @@
 # Link: https://docs.kedro.org/en/0.19.10/configuration/parameters.html
 
 modeling:
+  audience_building: ${audience_building}
   start_cohort: 201710
   split_cohort: 201802
   end_cohort: 201803
   target: target_churn
-  # features_selection:
+  nfolds_cv: 5
+  features:
+    - ord_mean_estimated_days_to_order_delivery_m6
+    - ord_std_estimated_days_to_order_delivery_m9
+    - ord_std_days_to_order_posting_m9
+    - ord_max_diff_days_actual_estimated_delivery_m9
+    - ord_recency_m9
+    - itm_mean_product_name_lenght_products_m3
+    - itm_std_product_description_lenght_products_m3
+    - itm_min_product_description_lenght_products_m3
+    - itm_sum_price_products_m6
+    - itm_std_price_products_m6
+    - itm_min_freight_value_products_m6
+    - itm_std_days_to_post_products_m9
+    - rev_std_delay_answer_review_m9
+    - rev_std_days_to_sent_survey_m9
+    - pay_std_value_not_credit_card_m9
+    - geo_max_distance_customer_seller_m3
+    - sel_seller_state
+  hyperparameters:
+    boosting_type: gbdt
+    class_weight: Null
+    colsample_bytree: 0.3598161213005806
+    importance_type: split
+    learning_rate: 0.45494654431041925
+    max_depth: 34
+    min_child_samples: 8
+    min_child_weight: 0.001
+    min_split_gain: 0.0
+    n_estimators: 98
+    n_jobs: Null
+    num_leaves: 116
+    objective: Null
+    reg_alpha: 0.0006508430841455098
+    reg_lambda: 0.005058716747318272
+    subsample: 0.951745820295062
+    subsample_for_bin: 200000
+    subsample_freq: 7
+    verbosity: -1
+    is_unbalance: True
+  ratings: 
+    - 207.4315643310547
+    - 257.7500915527344
+    - 311.5066223144531
+    - 381.15089416503906
+    - 595.8975219726562
+    - 894.8505554199219
+

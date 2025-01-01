@@ -360,21 +360,12 @@ class CustomLGBMClassifier(BaseEstimator, ClassifierMixin):
         """
         Treina o modelo
         """
-        cat_vars = [col for col in X.select_dtypes('category').columns]
-        cat_var_exp_tn = [col for col in cat_vars if col != 'CAD_TIPO_NEGOCIO']
-        pipe_steps = []
-        if cat_vars:
-            pipe_steps.append(('imputer',CategoricalImputer(variables=cat_vars)))
-        if 'CAD_TIPO_NEGOCIO' in cat_vars:
-            pipe_steps.append(
-                ('tn_label_encoder', RareLabelEncoder(max_n_categories=4,n_categories=5,
-                                                      tol=0.0001,
-                                                      replace_with='OUTROS',
-                                                      variables='CAD_TIPO_NEGOCIO'))
-            )
-        if cat_var_exp_tn:
-            pipe_steps.append(('encoder',RareLabelEncoder(variables=cat_var_exp_tn)))
-        pipe_steps.append(('estimator',self.estimator))
+
+        pipe_steps = [
+            ('cat_imputer',CategoricalImputer()),
+            ('rare_encoder',RareLabelEncoder()),
+            ('estimator',self.estimator)
+        ]
         self.classifier = Pipeline(pipe_steps)
         self.classifier.fit(X, y)
         self.feature_names_in_ = np.asarray(X.columns, dtype=object)
@@ -397,12 +388,13 @@ class CustomLGBMClassifier(BaseEstimator, ClassifierMixin):
 
     def fit_score(self, X: pd.DataFrame,
                   y: Union[pd.Series, None]=None,
-                  cv:Union[None,int]=None,
+                  nfolds_cv: Union[None, int]=None,
                   groups: Union[None,pd.Series] = None):
-        if isinstance(cv,int) and y is not None:
-            strat_kfold = StratifiedKFold(cv)
+        if isinstance(nfolds_cv,int) and y is not None:
+            strat_kfold = StratifiedKFold(nfolds_cv)
             y_proba = cross_val_predict(self.classifier, X, y,
-                                        method='predict_proba', cv=strat_kfold)[:,1]
+                                        method='predict_proba',
+                                        cv=strat_kfold)[:,1]
         else:
             y_proba = self.classifier.predict_proba(X)[:,1]
         y_proba_df = pd.DataFrame({'proba': y_proba})
@@ -471,9 +463,10 @@ class CustomLGBMClassifier(BaseEstimator, ClassifierMixin):
 
     def fit_all(self, X: pd.DataFrame, y: pd.Series,
                 groups: Union[None,pd.Series] = None,
+                nfolds_cv: Union[int, None] = None,
                 ratings: Union[List[float], Dict[str,float]] = None):
         self.fit(X, y)
-        self.fit_score(X, groups=groups)
+        self.fit_score(X, y, nfolds_cv, groups=groups)
         self.fit_ratings(ratings)
 
     def predict_default_probability(self, X: pd.DataFrame):

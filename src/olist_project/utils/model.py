@@ -236,16 +236,22 @@ def _inf_to_nan(X):
     return X.replace([np.inf, -np.inf], np.nan)
 
 def get_model(X_dev,
-              cat_vars: List[str],
-              num_vars: List[str],
+              cat_vars: List[str]=None,
+              num_vars: List[str]=None,
               params: Dict[str, Any]=None,
               model_type: ModelType = ModelType.LGBM,
               encoder = None,
               numerical_imputer = None,):
 
-    if not set(cat_vars + num_vars).issubset(set(X_dev.columns)):
+    if cat_vars is None:
+        cat_vars = [col for col in X_dev.select_dtypes('category').columns]
+
+    if num_vars is None:
+        num_vars = [col for col in X_dev.select_dtypes('number').columns]
+
+    if set(cat_vars + num_vars) != set(X_dev.columns):
         message = (
-            " cat_vars and num_vars must be a subset of X_dev.columns"
+            "cat_vars and num_vars must the have the same features as those in X_dev"
         )
         raise ValueError(message)
 
@@ -310,7 +316,7 @@ def objective(trial, X_dev, y_dev, cohort_dev=None,
         # Seleção de variáveis
         print('Selecting features...')
 
-        model = get_model_function(X_dev,params, model_type)
+        model = get_model_function(X_dev, params=params, model_type=model_type)
 
         model.fit(X_dev,y_dev)
         if isinstance(model,Pipeline) and hasattr(model[:-1],
@@ -338,7 +344,7 @@ def objective(trial, X_dev, y_dev, cohort_dev=None,
         sel_features = list(X_dev.columns)
     X_dev_new = X_dev[sel_features]
 
-    model = get_model_function(X_dev_new, params, model_type)
+    model = get_model_function(X_dev_new, params=params, model_type=model_type)
 
     print('Calculating objective metric...')
     if str(validation_type) in ['TIME_SPLIT_CV_SCORE', 'ALL']:
@@ -514,6 +520,7 @@ def mlflow_experiment_run_cv(model, X_dev, X_oot, y_dev, y_oot,
                                  optuna_study=None,
                                  log_datasets=False,
                                  log_model=False,
+                                 log_features=False,
                                  metric_plots=True,
                                  shap_plots=True,
                                  learning_curve_plot=True,
@@ -521,7 +528,7 @@ def mlflow_experiment_run_cv(model, X_dev, X_oot, y_dev, y_oot,
                                  cat_group_dev=None,
                                  cat_group_oot=None,
                                  mlflow_log = False,
-                                 run_name=None, 
+                                 run_name=None,
                                  run_id=None,
                                  nested_run = False,
                                  random_state=42,
@@ -753,10 +760,13 @@ def mlflow_experiment_run_cv(model, X_dev, X_oot, y_dev, y_oot,
             data_oot = mlflow.data.pandas_dataset.from_pandas(df_oot, targets=y_oot.name,
                                                               name='oot_dataset')
             mlflow.log_input(data_dev,"training")
-            mlflow.log_input(data_oot,"oot_validation")
+            mlflow.log_input(data_oot,"test_oot")
         if log_model:
             signature = mlflow.models.infer_signature(X_dev_new, y_probas_dev)
             mlflow.sklearn.log_model(model,'model',signature=signature)
+        if log_features:
+            features = list(X_dev_new.columns)
+            mlflow.log_dict({'feature_list': features}, 'features.json')
     if optuna_study:
         optuna_figs = {}
 
