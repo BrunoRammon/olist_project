@@ -19,6 +19,19 @@ from matplotlib_venn import venn3, venn2
 import string
 from sklearn.preprocessing import QuantileTransformer
 
+
+def _column_object_to_category(df: pd.DataFrame)-> pd.DataFrame:
+    """
+    """
+
+    return df.apply(lambda col: col.astype('category') if col.dtype in ['object','string'] else col)
+
+def _column_numeric_to_float(df: pd.DataFrame)-> pd.DataFrame:
+    """
+    """
+
+    return df.apply(lambda col: col.astype('float') if col.name in list(df.select_dtypes('number').columns) else col)
+
 def _map_tn(x):
 
     check_tn = any(x==tp_neg for tp_neg in ['POSTO IPIRANGA TERCEIROS', 'POSTO LOCADO',

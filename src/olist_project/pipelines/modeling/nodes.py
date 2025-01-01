@@ -7,7 +7,9 @@ import pandas as pd
 from sklearn.utils.validation import check_is_fitted
 import logging
 from olist_project.utils.utils import (
-    CustomLGBMClassifier
+    CustomLGBMClassifier,
+    _column_object_to_category,
+    _column_numeric_to_float
 )
 
 def _info_merge(raw_spine: pd.DataFrame, features: pd.DataFrame,
@@ -66,19 +68,6 @@ def build_abt(raw_spine: pd.DataFrame,
         .drop(columns=drop_columns)
     )
     return abt
-
-
-def _column_object_to_category(df: pd.DataFrame)-> pd.DataFrame:
-    """
-    """
-
-    return df.apply(lambda col: col.astype('category') if col.dtype in ['object','string'] else col)
-
-def _column_numeric_to_float(df: pd.DataFrame)-> pd.DataFrame:
-    """
-    """
-
-    return df.apply(lambda col: col.astype('float') if col.name in list(df.select_dtypes('number').columns) else col)
 
 def train_oot_split(
     abt: pd.DataFrame,
