@@ -4,6 +4,7 @@ generated using Kedro 0.19.10
 """
 
 from kedro.pipeline import Pipeline, pipeline, node
+from kedro.pipeline.modular_pipeline import pipeline as mod_pipe
 from .nodes import (
     build_target,
     build_features_orders,
@@ -18,11 +19,11 @@ from .nodes import (
 
 
 def create_pipeline(**kwargs) -> Pipeline:
-    return pipeline([
+    template_pipe = pipeline([
         node(
             func=build_target,
             inputs=[
-                "modeling_audience",
+                "audience",
                 "params:audience_building.id_col",
                 "params:audience_building.cohort_col",
                 "pre_orders",
@@ -30,13 +31,13 @@ def create_pipeline(**kwargs) -> Pipeline:
                 "params:feature_engineering.orders.cohort_info_col",
                 "params:feature_engineering.performance_period",
             ],
-            outputs="modeling_spine",
+            outputs="spine",
             name="build_target_node"
         ),
         node(
             func=build_features_orders,
             inputs=[
-                "modeling_audience",
+                "audience",
                 "params:audience_building.id_col",
                 "params:audience_building.cohort_col",
                 "pre_orders",
@@ -44,13 +45,13 @@ def create_pipeline(**kwargs) -> Pipeline:
                 "params:feature_engineering.orders.cohort_info_col",
                 "params:feature_engineering.time_windows",
             ],
-            outputs="modeling_feature_orders",
+            outputs="feature_orders",
             name="build_features_orders_node"
         ),
         node(
             func=build_features_items,
             inputs=[
-                "modeling_audience",
+                "audience",
                 "params:audience_building.id_col",
                 "params:audience_building.cohort_col",
                 "pre_order_items",
@@ -58,13 +59,13 @@ def create_pipeline(**kwargs) -> Pipeline:
                 "params:feature_engineering.items.cohort_info_col",
                 "params:feature_engineering.time_windows",
             ],
-            outputs="modeling_feature_items",
+            outputs="feature_items",
             name="build_features_items_node"
         ),
         node(
             func=build_features_reviews,
             inputs=[
-                "modeling_audience",
+                "audience",
                 "params:audience_building.id_col",
                 "params:audience_building.cohort_col",
                 "pre_order_reviews",
@@ -72,13 +73,13 @@ def create_pipeline(**kwargs) -> Pipeline:
                 "params:feature_engineering.reviews.cohort_info_col",
                 "params:feature_engineering.time_windows",
             ],
-            outputs="modeling_feature_reviews",
+            outputs="feature_reviews",
             name="build_features_reviews_node"
         ),
         node(
             func=build_features_payments,
             inputs=[
-                "modeling_audience",
+                "audience",
                 "params:audience_building.id_col",
                 "params:audience_building.cohort_col",
                 "pre_order_payments",
@@ -86,13 +87,13 @@ def create_pipeline(**kwargs) -> Pipeline:
                 "params:feature_engineering.payments.cohort_info_col",
                 "params:feature_engineering.time_windows",
             ],
-            outputs="modeling_feature_payments",
+            outputs="feature_payments",
             name="build_features_payments_node"
         ),
         node(
             func=build_features_customers,
             inputs=[
-                "modeling_audience",
+                "audience",
                 "params:audience_building.id_col",
                 "params:audience_building.cohort_col",
                 "pre_customers",
@@ -100,13 +101,13 @@ def create_pipeline(**kwargs) -> Pipeline:
                 "params:feature_engineering.customers.cohort_info_col",
                 "params:feature_engineering.time_windows",
             ],
-            outputs="modeling_feature_customers",
+            outputs="feature_customers",
             name="build_features_customers_node"
         ),
         node(
             func=build_features_geolocation,
             inputs=[
-                "modeling_audience",
+                "audience",
                 "params:audience_building.id_col",
                 "params:audience_building.cohort_col",
                 "pre_geolocation",
@@ -114,36 +115,74 @@ def create_pipeline(**kwargs) -> Pipeline:
                 "params:feature_engineering.geolocation.cohort_info_col",
                 "params:feature_engineering.time_windows",
             ],
-            outputs="modeling_feature_geolocation",
+            outputs="feature_geolocation",
             name="build_features_geolocation_node"
         ),
         node(
             func=build_features_sellers,
             inputs=[
-                "modeling_audience",
+                "audience",
                 "params:audience_building.id_col",
                 "params:audience_building.cohort_col",
                 "pre_sellers",
                 "params:feature_engineering.sellers.id_col",
             ],
-            outputs="modeling_feature_sellers",
+            outputs="feature_sellers",
             name="build_features_sellers_node"
         ),
         node(
             func=build_feature_table,
             inputs=[
-                "modeling_audience",
-                "modeling_feature_orders",
-                "modeling_feature_items",
-                "modeling_feature_reviews",
-                "modeling_feature_payments",
-                "modeling_feature_customers",
-                "modeling_feature_geolocation",
-                "modeling_feature_sellers",
+                "audience",
+                "feature_orders",
+                "feature_items",
+                "feature_reviews",
+                "feature_payments",
+                "feature_customers",
+                "feature_geolocation",
+                "feature_sellers",
                 "params:audience_building.id_col",
                 "params:audience_building.cohort_col",
             ],
-            outputs="modeling_feature_table",
+            outputs="feature_table",
             name="build_feature_table_node"
         ),
     ])
+
+    inputs = ["pre_orders", "pre_order_items",
+              "pre_order_reviews", "pre_order_payments",
+              "pre_customers", "pre_geolocation", "pre_sellers",]
+    parameters = [
+        "params:feature_engineering.orders.id_col",
+        "params:feature_engineering.orders.cohort_info_col",
+        "params:feature_engineering.items.id_col",
+        "params:feature_engineering.items.cohort_info_col",
+        "params:feature_engineering.reviews.id_col",
+        "params:feature_engineering.reviews.cohort_info_col",
+        "params:feature_engineering.payments.id_col",
+        "params:feature_engineering.payments.cohort_info_col",
+        "params:feature_engineering.customers.id_col",
+        "params:feature_engineering.customers.cohort_info_col",
+        "params:feature_engineering.geolocation.id_col",
+        "params:feature_engineering.geolocation.cohort_info_col",
+        "params:feature_engineering.sellers.id_col",
+        "params:feature_engineering.time_windows",
+        "params:feature_engineering.performance_period",
+    ]
+    modeling_pipe = mod_pipe(
+        pipe=template_pipe,
+        inputs=inputs,
+        parameters=parameters,
+        namespace="modeling",
+        tags=["modeling", "modeling-without-preprocess"]
+    )
+
+    scoring_pipe = mod_pipe(
+        pipe=template_pipe,
+        inputs=inputs,
+        parameters=parameters,
+        namespace="scoring",
+        tags=["scoring", "scoring-without-preprocess"]
+    )
+
+    return modeling_pipe+scoring_pipe

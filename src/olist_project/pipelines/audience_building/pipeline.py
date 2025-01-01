@@ -4,6 +4,7 @@ generated using Kedro 0.19.10
 """
 
 from kedro.pipeline import Pipeline, pipeline, node
+from kedro.pipeline.modular_pipeline import pipeline as mod_pipe
 from .nodes import (
     build_initial_audience,
     build_audience_filters,
@@ -12,15 +13,15 @@ from .nodes import (
 
 
 def create_pipeline(**kwargs) -> Pipeline:
-    return pipeline([
+    template_pipe = pipeline([
         node(
             func=build_initial_audience,
             inputs=[
                 "pre_orders",
                 "params:audience_building.id_col",
                 "params:audience_building.cohort_info_col",
-                "params:modeling.start_cohort",
-                "params:modeling.end_cohort",
+                "params:namespace.start_cohort",
+                "params:namespace.end_cohort",
                 "params:feature_engineering.historical_period",
             ],
             outputs='initial_audience',
@@ -46,7 +47,33 @@ def create_pipeline(**kwargs) -> Pipeline:
                 "params:audience_building.id_col",
                 "params:audience_building.cohort_col",
             ],
-            outputs='modeling_audience',
+            outputs='audience',
             name='build_final_audience'
         ),
     ])
+
+    namespace = "modeling"
+    modeling_pipe = mod_pipe(
+        pipe=template_pipe,
+        inputs=["pre_orders"],
+        parameters={
+            "params:namespace.start_cohort": f"params:{namespace}.start_cohort",
+            "params:namespace.end_cohort": f"params:{namespace}.end_cohort",
+            "params:feature_engineering.historical_period": "params:feature_engineering.historical_period",
+        },
+        namespace=namespace,
+        tags=[namespace, f"{namespace}-without-preprocess"]
+    )
+    namespace = "scoring"
+    scoring_pipe = mod_pipe(
+        pipe=template_pipe,
+        inputs=["pre_orders"],
+        parameters={
+            "params:namespace.start_cohort": f"params:{namespace}.start_cohort",
+            "params:namespace.end_cohort": f"params:{namespace}.end_cohort",
+            "params:feature_engineering.historical_period": "params:feature_engineering.historical_period",
+        },
+        namespace=namespace,
+        tags=[namespace, f"{namespace}-without-preprocess"]
+    )
+    return modeling_pipe+scoring_pipe

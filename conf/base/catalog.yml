@@ -6,17 +6,17 @@
   type: pandas.ParquetDataset
   filepath: data/02_intermediate/{name}.parquet
 
-modeling_audience:
+"{namespace}.audience":
   type: pandas.ParquetDataset
-  filepath: data/03_primary/modeling_audience.parquet
+  filepath: data/03_primary/{namespace}_audience.parquet
 
-modeling_spine:
+"{namespace}.spine":
   type: pandas.ParquetDataset
-  filepath: data/03_primary/modeling_spine.parquet
+  filepath: data/04_feature/{namespace}_spine.parquet
 
-"modeling_feature_{name}":
+"{namespace}.feature_{name}":
   type: pandas.ParquetDataset
-  filepath: data/04_feature/modeling_{name}.parquet
+  filepath: data/04_feature/{namespace}_{name}.parquet
 
 abt:
   type: pandas.ParquetDataset
@@ -29,3 +29,7 @@ abt:
 "{name}_test_oot":
   type: pandas.ParquetDataset
   filepath: data/05_model_input/{name}_test_oot.parquet
+
+custom_lgbm_model:
+  type: pickle.PickleDataset
+  filepath: data/06_models/custom_lgbm_model.pkl
