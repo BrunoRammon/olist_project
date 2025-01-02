@@ -7,5 +7,5 @@
 scoring:
   audience_building: ${audience_building}
   start_cohort: 201801 # embora 201801 e 201802 ainda estejam no período de treinamento uso esses meses na escoragem
-  end_cohort: 201808
+  end_cohort: 201810
   target: target_churn

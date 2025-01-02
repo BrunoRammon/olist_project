@@ -4,13 +4,14 @@ generated using Kedro 0.19.10
 """
 
 from typing import List, Dict, Callable, Tuple
+import logging
 import pandas as pd
 from tqdm import tqdm
-import logging
 import numpy as np
 from olist_project.utils.utils import (
     _check_dataset_granularity, _cohort_offset,
-    _cohort_to_datetime, ConsistenceDataError
+    _cohort_to_datetime, ConsistenceDataError,
+    _last_cohort_info_available
 )
 
 def _logging_info(message):
@@ -40,6 +41,30 @@ def _build_target_churn_for_cohort(
     )
     return df_target_churn_cohort
 
+def _available_cohorts_for_target(
+        df_orders: pd.DataFrame,
+        cohort_orders_col: str,
+        performance_period: int,
+        cohorts: List[str])-> List[str]:
+
+    last_cohort_available = _last_cohort_info_available(df_orders,
+                                                        cohort_orders_col)
+    last_cohort_target_available = (
+        _cohort_offset(last_cohort_available,-performance_period+1)
+    )
+    cohorts_target = [cohort for cohort in cohorts
+                        if cohort <= last_cohort_target_available]
+    cohorts_not_target = [cohort for cohort in cohorts
+                            if cohort not in cohorts_target]
+    if cohorts_not_target:
+        message = (
+            f"The cohorts {cohorts_not_target} were not available for target"
+            " building due to insufficient time, given the need to account"
+            f" for the performance of {performance_period} cohorts."
+        )
+        _logging_info(message)
+    return cohorts_target
+
 def build_target(
         df_audience: pd.DataFrame,
         id_audience_col: str,
@@ -53,6 +78,11 @@ def build_target(
     """
 
     cohorts = sorted(df_audience[cohort_audience_col].unique())
+    cohorts = _available_cohorts_for_target(df_orders,
+                                            cohort_orders_col,
+                                            performance_period,
+                                            cohorts)
+
     dfs_target_churn_cohort = []
     for cohort in cohorts:
         df_target_churn_cohort = _build_target_churn_for_cohort(
@@ -66,7 +96,8 @@ def build_target(
         .rename(columns={'cohort': cohort_audience_col,
                          id_orders_col: id_audience_col})
         .merge(
-            df_audience[[id_audience_col,cohort_audience_col]],
+            df_audience[[id_audience_col,cohort_audience_col]]
+            .query(f'{cohort_audience_col}.isin({cohorts})'),
             on=[id_audience_col,cohort_audience_col],
             how='right'
         )

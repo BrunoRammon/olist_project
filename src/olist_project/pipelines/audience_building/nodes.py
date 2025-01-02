@@ -4,11 +4,38 @@ generated using Kedro 0.19.10
 """
 
 from typing import Dict, List, Any
+import logging
 import pandas as pd
 from olist_project.utils.utils import (
     _cohort_range_list, _check_dataset_granularity,
-    _cohort_offset
+    _cohort_offset, _last_cohort_info_available
 )
+
+def _logging_info(message):
+    logger = logging.getLogger(__name__)
+    logger.info(message)
+
+def _available_cohorts_for_audience(
+        df_orders: pd.DataFrame,
+        cohort_orders_col: str,
+        cohorts: List[str])-> List[str]:
+
+    last_cohort_info_available = _last_cohort_info_available(df_orders,
+                                                             cohort_orders_col)
+    last_cohort_available = _cohort_offset(last_cohort_info_available, 1)
+    cohorts_audience = [cohort for cohort in cohorts
+                        if cohort <= last_cohort_available]
+    cohorts_not_audience = [cohort for cohort in cohorts
+                            if cohort not in cohorts_audience]
+
+    if cohorts_not_audience:
+        message = (
+            f"The cohorts {cohorts_not_audience} were not available" 
+            " for feature building and will be excluded from the audience."
+        )
+        _logging_info(message)
+
+    return cohorts_audience
 
 def build_initial_audience(
         df_orders: pd.DataFrame,
@@ -23,6 +50,9 @@ def build_initial_audience(
 
     df_audience_cohort_list = []
     cohorts = _cohort_range_list(start_cohort,end_cohort)
+    cohorts = _available_cohorts_for_audience(df_orders,
+                                              cohort_info_col,
+                                              cohorts)
     for cohort in cohorts:
         initial_cohort = _cohort_offset(cohort, -historical_period)
         df_audience_cohort = (

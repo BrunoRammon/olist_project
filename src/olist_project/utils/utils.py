@@ -19,6 +19,15 @@ from matplotlib_venn import venn3, venn2
 import string
 from sklearn.preprocessing import QuantileTransformer
 
+def _last_cohort_info_available(df_orders: pd.DataFrame,
+                                cohort_orders_col: str,)-> int:
+    volume_by_cohort_m12 = (
+        df_orders[cohort_orders_col]
+        .value_counts()
+        .sort_index()[-12:]
+    )
+    tol = volume_by_cohort_m12.quantile(0.05)
+    return max(volume_by_cohort_m12[volume_by_cohort_m12>tol].index)
 
 def _column_object_to_category(df: pd.DataFrame)-> pd.DataFrame:
     """
