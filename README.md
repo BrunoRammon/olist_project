@@ -30,10 +30,13 @@ The datasets used are those publicly available at [olistbr/brazilian-ecommerce](
 - The historical period from 10-2017 to 02-2018 (~80% of the ABT's volume) was used for the training/validation set and the stratified cross-validation technique with 5 folds was used for validation.
 - The last month for which the target was available, i.e. 03-2018, was used for the test set (~20% of the ABT's volume). This test set was not used to make decisions about choosing models, resources or optimizing hyperparameters, but only for the final evaluation of the models. The most recent month available was purposely used because it is understood that this is the set closest to the one we will have when the model is put into production.
 
-### Model development steps (IN PROGRESS):
-- Model selection
-- Feature selection
-- Hyperparameter optmization
+### Model development steps:
+- **Model selection**: in this step, the machine learning algorithm was selected from experiments with different models and preprocessing techniques. The file `notebooks/Modeling/model_selection.ipynb` contains more detail about the experiments performed.
+- **Feature selection**: in this step, a selection of variables was performed. The initial set had 370 features and several different successive filters were applied to obtain 10 restricted sets ranging from 7 to 30 variables, thus altering the complexity of the model. More details about the processes used can be found in the file `notebooks/Modeling/feature_selection.ipynb`.
+- **Hyperparameter optimization**: from the sets of variables obtained in the previous step, the hyperparameter optimization of each of these sets was performed. The hyperparameter search process was performed with Optuna. For details about the procedure used, see the file `notebooks/Modeling/hyperparameters_tuning.ipynb`.
+
+### Experiment Tracking 
+MLflow was used as the experiment tracking tool of this project. To consult the results of the experiments performed at each modeling stage, simply start the local server using the command `make start_mlflow_server`.
 
 # Getting Started
 ## Pré requesitos
