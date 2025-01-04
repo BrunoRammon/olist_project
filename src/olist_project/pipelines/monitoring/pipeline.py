@@ -11,7 +11,9 @@ from .nodes import (
     performance_monitoring,
     generate_shap_values,
     shap_monitoring,
-    prediction_monitoring
+    prediction_monitoring,
+    generate_scoring_report,
+    generate_target_report
 )
 
 def create_pipeline(**kwargs) -> Pipeline:
@@ -116,5 +118,27 @@ def create_pipeline(**kwargs) -> Pipeline:
                      "features_statistics_plot",
                      "features_psi_plot"],
             name="prediction_monitoring_node"
-        )
+        ),
+        node(
+            func=generate_scoring_report,
+            inputs=[
+                "scored_history",
+                "params:audience_building.cohort_col",
+                "params:modeling.end_cohort",
+            ],
+            outputs=None,
+            name="generate_scoring_report_node"
+        ),
+        node(
+            func=generate_target_report,
+            inputs=[
+                "scored_history",
+                "target_history",
+                "params:audience_building.id_col",
+                "params:audience_building.cohort_col",
+                "params:modeling.split_cohort",
+            ],
+            outputs=None,
+            name="generate_target_report_node"
+        ),
     ], tags=["scoring", "scoring-without-preprocess"])

@@ -13,7 +13,7 @@ import plotly.graph_objects as go
 import plotly.subplots as sp
 import matplotlib.pyplot as plt
 import shap
-from olist_project.utils.utils import CustomLGBMClassifier
+from olist_project.utils.utils import CustomLGBMClassifier, _cohort_to_datetime
 
 SOURCE_COLOR_MAP = {
     'ord': 'blue',
@@ -1600,3 +1600,167 @@ def shap_monitoring(
         shap_summary_plot,
         shap_ft_imp_plot
     )
+
+from evidently.metrics import (
+    ColumnDistributionMetric,
+    ColumnValuePlot,
+    ColumnQuantileMetric,
+)
+from evidently.metric_preset import DataDriftPreset, DataQualityPreset
+
+from evidently.metrics import (
+    ClassificationQualityMetric,
+    ClassificationClassBalance,
+    ClassificationClassSeparationPlot,
+    ClassificationProbDistribution,
+    ClassificationRocCurve,
+    ClassificationPRCurve,
+    ClassificationPRTable,
+    ClassificationQualityByFeatureTable
+)
+from evidently.metric_preset import TargetDriftPreset
+
+from evidently import ColumnMapping
+from evidently.report import Report
+
+
+def _generate_column_mapping():
+    column_mapping = ColumnMapping()
+
+    column_mapping.target = 'target_churn'
+    column_mapping.prediction = ['not_churn', 'churn']
+    column_mapping.pos_label = 'churn'
+    column_mapping.id = 'seller_id'
+    column_mapping.datetime = 'dt_cohort'
+    column_mapping.task = 'classification'
+    column_mapping.numerical_features = [
+        'ord_mean_estimated_days_to_order_delivery_m6',
+        'ord_std_estimated_days_to_order_delivery_m9',
+        'ord_std_days_to_order_posting_m9',
+        'ord_max_diff_days_actual_estimated_delivery_m9',
+        'ord_recency_m9',
+        'itm_mean_product_name_lenght_products_m3',
+        'itm_std_product_description_lenght_products_m3',
+        'itm_min_product_description_lenght_products_m3',
+        'itm_sum_price_products_m6',
+        'itm_std_price_products_m6',
+        'itm_min_freight_value_products_m6',
+        'itm_std_days_to_post_products_m9',
+        'rev_std_delay_answer_review_m9',
+        'rev_std_days_to_sent_survey_m9',
+        'pay_std_value_not_credit_card_m9',
+        'geo_max_distance_customer_seller_m3',
+        'score',
+    ]
+    column_mapping.categorical_features = [
+        'sel_seller_state',
+        'rating'
+    ]
+    return column_mapping
+
+def _reference_current_dataset(df: pd.DataFrame,
+                               cohort_col: str,
+                               last_cohort_reference: str):
+
+    df_ref = (
+        df
+        .query(f'{cohort_col}<={last_cohort_reference}')
+        .reset_index(drop=True)
+        .assign(
+            dt_cohort = lambda df: _cohort_to_datetime(df[cohort_col])
+        )
+        .assign(
+            not_churn = lambda df: 1-df.proba,
+            churn = lambda df: df.proba,
+        )
+    )
+
+    df_cur = (
+        df
+        .query(f'{cohort_col}>{last_cohort_reference}')
+        .reset_index(drop=True)
+        .assign(
+            dt_cohort = lambda df: _cohort_to_datetime(df[cohort_col])
+        )
+        .assign(
+            not_churn = lambda df: 1-df.proba,
+            churn = lambda df: df.proba,
+        )
+    )
+
+    return df_ref,df_cur
+
+def generate_scoring_report(df_scoring: pd.DataFrame,
+                             cohort_col: str,
+                             last_cohort_reference: str):
+    column_mapping = _generate_column_mapping()
+    data_quality_report = Report(
+        metrics=[
+            DataQualityPreset(),
+            ColumnDistributionMetric(column_name='rating'),
+            ColumnDistributionMetric(column_name='score'),
+            ColumnValuePlot(column_name='score'),
+            ColumnQuantileMetric(column_name='score', quantile=0.5),
+            DataDriftPreset(),
+        ],
+        options={"render": {"raw_data": True}}
+    )
+    df_ref, df_cur = _reference_current_dataset(df_scoring,cohort_col,
+                                                last_cohort_reference)
+    data_quality_report.run(reference_data=df_ref,
+                            current_data=df_cur,
+                            column_mapping=column_mapping)
+    data_quality_report.save_html("./data/08_reporting/reporting/scoring_report.html")
+
+def _reference_current_target_dataset(df_scoring: pd.DataFrame,
+                                      df_spine: pd.DataFrame,
+                                      id_col: str,
+                                      cohort_col: str,
+                                      last_cohort_reference: str):
+    target_classes = {0:'not_churn',1:'churn'}
+    df_target = (
+        df_scoring
+        .merge(
+            df_spine,
+            on=[id_col,cohort_col],
+            how='inner'
+        )
+        .assign(
+            target_churn = lambda df: df.target_churn.map(target_classes)
+        )
+    )
+
+    df_ref, df_cur = _reference_current_dataset(df_target,cohort_col,
+                                               last_cohort_reference)
+
+    return df_ref,df_cur
+
+def generate_target_report(df_scoring: pd.DataFrame,
+                            df_spine: pd.DataFrame,
+                            id_col: str,
+                            cohort_col: str,
+                            last_cohort_reference: str):
+    column_mapping = _generate_column_mapping()
+
+    target_report = Report(
+        metrics=[
+            ClassificationQualityMetric(),
+            ClassificationClassBalance(),
+            ClassificationClassSeparationPlot(),
+            ClassificationProbDistribution(),
+            ClassificationRocCurve(),
+            ClassificationPRCurve(),
+            ClassificationPRTable(),
+            ClassificationQualityByFeatureTable(),
+            TargetDriftPreset(),
+        ],
+        options={"render": {"raw_data": True}}
+    )
+
+    df_ref,df_cur = _reference_current_target_dataset(df_scoring, df_spine,
+                                                      id_col, cohort_col,
+                                                      last_cohort_reference)
+    target_report.run(reference_data=df_ref,
+                            current_data=df_cur,
+                            column_mapping=column_mapping)
+    target_report.save_html("./data/08_reporting/reporting/target_report.html")
