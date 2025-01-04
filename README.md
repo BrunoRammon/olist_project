@@ -92,3 +92,7 @@ There are two types of scoring that can be performed:
     ```console
     kedro run --tags=modeling-without-abt-update
     ```
+
+# Future enhancements
+- Use of docstring in functions nodes to document the code
+- Containerize the application
