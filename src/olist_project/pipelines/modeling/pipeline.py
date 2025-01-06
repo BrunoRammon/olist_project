@@ -7,6 +7,8 @@ from kedro.pipeline import Pipeline, pipeline, node
 from .nodes import (
     build_abt,
     train_oot_split,
+    feature_selection,
+    hyperparameters_tuning,
     train_final_model,
     model_results
 )
@@ -35,7 +37,6 @@ def create_pipeline(**kwargs) -> Pipeline:
                 "params:audience_building.id_col",
                 "params:audience_building.cohort_col",
                 "params:modeling.target",
-                "params:modeling.features"
             ],
             outputs=[
                 "X_train",
@@ -46,6 +47,55 @@ def create_pipeline(**kwargs) -> Pipeline:
                 "id_model_test_oot",
             ],
             name="train_oot_split_node",
+            tags=["modeling-without-abt-update"]
+        ),
+        node(
+            func=feature_selection,
+            inputs=[
+                "X_train",
+                "y_train",
+                "params:modeling.target",
+                "params:modeling.nfolds_cv"
+            ],
+            outputs="features_set",
+            name="feature_selection_node",
+            tags=["modeling-without-abt-update", "modeling-only-train"]
+        ),
+        node(
+            func=hyperparameters_tuning,
+            inputs=[
+                "X_train",
+                "y_train",
+                "features_set",
+                "params:random_state",
+                "params:modeling.ntrials_optimization",
+                "params:modeling.nfolds_cv"
+            ],
+            outputs="best_hyperparameters",
+            name="hyperparameters_tuning_node",
+            tags=["modeling-without-abt-update", "modeling-only-train"]
+        ),
+        node(
+            func=train_oot_split,
+            inputs=[
+                "abt",
+                "params:modeling.start_cohort",
+                "params:modeling.split_cohort",
+                "params:modeling.end_cohort",
+                "params:audience_building.id_col",
+                "params:audience_building.cohort_col",
+                "params:modeling.target",
+                "features_set"
+            ],
+            outputs=[
+                "X_final_train",
+                "y_final_train",
+                "id_model_final_train",
+                "X_final_test_oot",
+                "y_final_test_oot",
+                "id_model_final_test_oot",
+            ],
+            name="final_train_oot_split_node",
             tags=["modeling-without-abt-update"]
         ),
         node(

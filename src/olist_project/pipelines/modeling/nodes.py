@@ -3,14 +3,28 @@ This is a boilerplate pipeline 'modeling'
 generated using Kedro 0.19.10
 """
 from typing import Tuple, List, Dict, Union
+import copy
+import logging
+from sklearn.pipeline import Pipeline
+from feature_engine.imputation import ArbitraryNumberImputer
+from feature_engine.selection import (
+    DropDuplicateFeatures, 
+    DropConstantFeatures,
+    DropHighPSIFeatures,
+    SelectByInformationValue,
+    SmartCorrelatedSelection,
+    RecursiveFeatureAddition,
+)
+import optuna
 import pandas as pd
 from sklearn.utils.validation import check_is_fitted
-import logging
+from sklearn.model_selection import StratifiedKFold
 from olist_project.utils.utils import (
     CustomLGBMClassifier,
     _column_object_to_category,
-    _column_numeric_to_float
+    _column_numeric_to_float,
 )
+from olist_project.utils.model import get_model, ModelType, objective, MetricType
 
 def _info_merge(raw_spine: pd.DataFrame, features: pd.DataFrame,
                 id_col: str, cohort_col: str):
@@ -213,6 +227,98 @@ def train_oot_split(
         X_train, y_train, id_model_train,
         X_oot, y_oot, id_model_oot
     )
+
+def feature_selection(X_train: pd.DataFrame,
+                      y_train: pd.DataFrame,
+                      target_name: str,
+                      nfolds_cv: int):
+    """
+    """
+    y_train = y_train[target_name]
+    logger = logging.getLogger(__name__)
+
+    cat_vars = [col for col in X_train.select_dtypes('category').columns]
+    num_vars = [col for col in X_train.columns if col not in cat_vars]
+
+    logger.info("Computing feature selection by filter methods...")
+    baseline_model = get_model(X_train,cat_vars,num_vars,
+                               model_type=ModelType.LGBM)
+    pipe_steps = copy.deepcopy(baseline_model.steps)
+    pipe_steps.insert(-1,('drop_duplicated', DropDuplicateFeatures()))
+    pipe_steps.insert(-1,('num_imputer', ArbitraryNumberImputer(-99999999)))
+    pipe_steps.insert(-1,('drop_constant', DropConstantFeatures(tol=.95)))
+    pipe_steps.insert(-1,('drop_psi', DropHighPSIFeatures(threshold=0.1)))
+    feature_psi_pipe = Pipeline(pipe_steps)
+    X_train_trans_psi = feature_psi_pipe[:-1].fit_transform(X_train,y_train)
+
+    features_iv = [col for col in X_train_trans_psi.columns if col not in ['sel_seller_state']]
+    iv_selection = SelectByInformationValue(variables=features_iv,
+                                            strategy='equal_frequency',
+                                            threshold=0.2)
+    iv_selection.fit(X_train_trans_psi,y_train)
+    selected_features_filter_methods = iv_selection.get_feature_names_out()
+    message = (
+        "End of feature selection by filter methods. "
+        f"{len(selected_features_filter_methods)} features selected."
+    )
+    logger.info(message)
+
+    logger.info("Computing feature selection by ML based methods...")
+    skf = StratifiedKFold(nfolds_cv)
+    threshold_rfa = 0.001
+    cat_vars = [col for col in (X_train[selected_features_filter_methods]
+                                .select_dtypes('category')
+                                .columns)]
+    num_vars = [col for col in X_train[selected_features_filter_methods].columns
+                    if col not in cat_vars]
+    baseline_model = get_model(X_train[selected_features_filter_methods],cat_vars,num_vars,
+                               model_type=ModelType.LGBM)
+    pipe_steps = copy.deepcopy(baseline_model.steps)
+    pipe_steps.insert(-1,
+        ('drop_correlated', SmartCorrelatedSelection(selection_method='model_performance',
+                                                     estimator=baseline_model[-1],
+                                                     cv=skf))
+    )
+    pipe_steps.insert(-1,
+        ('rfa_selection', RecursiveFeatureAddition(estimator=baseline_model[-1],
+                                                   cv=skf,
+                                                   threshold=threshold_rfa))
+    )
+
+    feature_sel_ml_based_pipe = Pipeline(pipe_steps)
+    feature_sel_ml_based_pipe[:-1].fit(X_train[selected_features_filter_methods], y_train)
+    final_feature_set = feature_sel_ml_based_pipe[-2].get_feature_names_out()
+
+    return final_feature_set
+
+def hyperparameters_tuning(X_train: pd.DataFrame,
+                           y_train: pd.DataFrame,
+                           features: List[str],
+                           random_state: int,
+                           n_trials: int,
+                           nfolds_cv: int):
+    """
+    """
+
+    sampler = optuna.samplers.TPESampler(seed=random_state)
+    study = optuna.create_study(study_name='optmization_study',
+                                directions=['maximize'],
+                                sampler=sampler)
+    X_train_new = X_train[features].copy()
+    base_model_type = ModelType.LGBM
+    validation_type = MetricType.TRAIN_TEST_CV_PREDICT
+    get_model_func = get_model
+    study.optimize(lambda trial: objective(trial,
+                                           X_train_new, y_train,
+                                           validation_type=validation_type,
+                                           with_std_penalization=True,
+                                           feature_selection=False,
+                                           model_type=base_model_type,
+                                           get_model_function=get_model_func,
+                                           cv_n_folds=nfolds_cv),
+                   n_trials=n_trials)
+    model_best_hyperparams = study.best_trial.params
+    return model_best_hyperparams
 
 def train_final_model(X_train: pd.DataFrame, y_train: pd.DataFrame,
                       ratings: Union[List[float], Dict[str,float]],
