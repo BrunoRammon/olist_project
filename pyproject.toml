@@ -86,3 +86,7 @@ ignore = ["E501"]  # Ruff format takes care of line-too-long
 
 [tool.kedro_telemetry]
 project_id = "de77cfd8a48848ed9fad0b0f15f2fbdb"
+
+[tool.pylint.variables]
+# Whitelist specific variable names
+good-names = ['X', 'X_train', 'X_oot', 'X_dev', 'X_test_oot', 'X_val']
