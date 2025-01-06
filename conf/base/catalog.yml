@@ -30,6 +30,14 @@ abt:
   type: pandas.ParquetDataset
   filepath: data/05_model_input/{name}_test_oot.parquet
 
+features_set:
+  type: json.JSONDataset
+  filepath: data/05_model_input/features_set.json
+
+best_hyperparameters:
+  type: json.JSONDataset
+  filepath: data/05_model_input/best_hyperparameters.json
+
 custom_lgbm_model:
   type: pickle.PickleDataset
   filepath: data/06_models/custom_lgbm_model.pkl

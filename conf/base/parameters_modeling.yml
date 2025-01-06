@@ -11,6 +11,7 @@ modeling:
   end_cohort: 201803
   target: target_churn
   nfolds_cv: 5
+  ntrials_optimization: 100
   features:
     - ord_mean_estimated_days_to_order_delivery_m6
     - ord_std_estimated_days_to_order_delivery_m9
