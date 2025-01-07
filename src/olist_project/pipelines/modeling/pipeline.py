@@ -9,6 +9,7 @@ from .nodes import (
     train_oot_split,
     feature_selection,
     hyperparameters_tuning,
+    ratings_optimization,
     train_final_model,
     model_results
 )
@@ -62,20 +63,6 @@ def create_pipeline(**kwargs) -> Pipeline:
             tags=["modeling-without-abt-update", "modeling-only-train"]
         ),
         node(
-            func=hyperparameters_tuning,
-            inputs=[
-                "X_train",
-                "y_train",
-                "features_set",
-                "params:random_state",
-                "params:modeling.ntrials_optimization",
-                "params:modeling.nfolds_cv"
-            ],
-            outputs="best_hyperparameters",
-            name="hyperparameters_tuning_node",
-            tags=["modeling-without-abt-update", "modeling-only-train"]
-        ),
-        node(
             func=train_oot_split,
             inputs=[
                 "abt",
@@ -99,13 +86,42 @@ def create_pipeline(**kwargs) -> Pipeline:
             tags=["modeling-without-abt-update"]
         ),
         node(
+            func=hyperparameters_tuning,
+            inputs=[
+                "X_final_train",
+                "y_final_train",
+                "params:modeling.ntrials_optimization",
+                "params:modeling.target",
+                "params:random_state",
+                "params:modeling.nfolds_cv"
+            ],
+            outputs="best_hyperparameters",
+            name="hyperparameters_tuning_node",
+            tags=["modeling-without-abt-update", "modeling-only-train"]
+        ),
+        node(
+            func=ratings_optimization,
+            inputs=[
+                "X_final_train",
+                "y_final_train",
+                "best_hyperparameters",
+                "params:modeling.nratings",
+                "params:modeling.target",
+                "params:random_state",
+                "params:modeling.nfolds_cv"
+            ],
+            outputs="ratings_limits",
+            name="ratings_optimization_node",
+            tags=["modeling-without-abt-update", "modeling-only-train"]
+        ),
+        node(
             func=train_final_model,
             inputs=[
-                "X_train",
-                "y_train",
-                "params:modeling.ratings",
+                "X_final_train",
+                "y_final_train",
+                "best_hyperparameters",
+                "ratings_limits",
                 "params:random_state",
-                "params:modeling.hyperparameters",
                 "params:modeling.nfolds_cv"
             ],
             outputs="custom_lgbm_model",
@@ -116,12 +132,12 @@ def create_pipeline(**kwargs) -> Pipeline:
             func=model_results,
             inputs=[
                 "custom_lgbm_model",
-                "X_train",
-                "y_train",
-                "id_model_train",
-                "X_test_oot",
-                "y_test_oot",
-                "id_model_test_oot",
+                "X_final_train",
+                "y_final_train",
+                "id_model_final_train",
+                "X_final_test_oot",
+                "y_final_test_oot",
+                "id_model_final_test_oot",
             ],
             outputs=["results_train", "results_test_oot"],
             name="model_results_node",

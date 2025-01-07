@@ -2,10 +2,9 @@
 This is a boilerplate pipeline 'modeling'
 generated using Kedro 0.19.10
 """
-from typing import Tuple, List, Dict, Union
+from typing import Tuple, List, Dict, Union, Any
 import copy
 import logging
-from sklearn.pipeline import Pipeline
 from feature_engine.imputation import ArbitraryNumberImputer
 from feature_engine.selection import (
     DropDuplicateFeatures, 
@@ -17,8 +16,12 @@ from feature_engine.selection import (
 )
 import optuna
 import pandas as pd
+import numpy as np
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import QuantileTransformer
 from sklearn.utils.validation import check_is_fitted
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, cross_val_predict
+import optbinning
 from olist_project.utils.utils import (
     CustomLGBMClassifier,
     _column_object_to_category,
@@ -91,7 +94,7 @@ def train_oot_split(
     id_col: str,
     cohort_col: str,
     target_col: str,
-    features: Union[List[str], None] = None,
+    features: Union[Dict[str, List[str]], None] = None,
 )-> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Divide a ABT nos datasets de treino e validação oot e retorna a matriz de features, o vetor
@@ -113,7 +116,7 @@ def train_oot_split(
         Lista de nome das colunas que identificam unicamente as observações usadas na modelagem.
     target_col : str
         Nome da coluna da target usada na modelagem. Por exemplo, TARGET_FLX
-    features : List[str]
+    features : Union[Dict[str, List[str]], None]
         Lista de nome das colunas das variáveis utilizadas no modelo.
     """
 
@@ -141,10 +144,6 @@ def train_oot_split(
     if target_col not in abt.columns:
         raise ValueError("target_col must be in the abt columns")
 
-    # Check if the inputs are lists of strings
-    if features and not all(isinstance(i, str) for i in features):
-        raise TypeError("features must be a list of strings")
-
     if not isinstance(id_col, str):
         raise TypeError("id_col must be a list of strings")
 
@@ -158,10 +157,6 @@ def train_oot_split(
     if not all(i in abt.columns for i in [cohort_col]):
         raise ValueError("cohort_col must be in the abt columns")
 
-    # Check if the features are in the abt
-    if features and not all(i in abt.columns for i in features):
-        raise ValueError("features must be in the abt columns")
-
     # Check if the cohorts make sense
     if start_cohort >= split_cohort or split_cohort >= final_cohort:
         message = (
@@ -171,12 +166,16 @@ def train_oot_split(
         raise ValueError(message)
 
     if features:
-        col_features = features
+        col_features = features['final_feature_set']
     else:
         col_features = [
             col for col in abt.columns
                 if not col.startswith('target_') and col not in [id_col, cohort_col]
         ]
+
+    # Check if the features are in the abt
+    if col_features and not all(i in abt.columns for i in col_features):
+        raise ValueError("final feature set must be in the abt columns")
 
     all_features = [
         col for col in abt.columns
@@ -258,58 +257,88 @@ def feature_selection(X_train: pd.DataFrame,
     iv_selection.fit(X_train_trans_psi,y_train)
     selected_features_filter_methods = iv_selection.get_feature_names_out()
     message = (
-        "End of feature selection by filter methods. "
-        f"{len(selected_features_filter_methods)} features selected."
+        "End of feature selection by filter methods."
+        f"\n  {len(selected_features_filter_methods)} features selected."
     )
     logger.info(message)
 
     logger.info("Computing feature selection by ML based methods...")
+
     skf = StratifiedKFold(nfolds_cv)
-    threshold_rfa = 0.001
-    cat_vars = [col for col in (X_train[selected_features_filter_methods]
-                                .select_dtypes('category')
-                                .columns)]
-    num_vars = [col for col in X_train[selected_features_filter_methods].columns
-                    if col not in cat_vars]
-    baseline_model = get_model(X_train[selected_features_filter_methods],cat_vars,num_vars,
-                               model_type=ModelType.LGBM)
+
+    # smart correlated selection
     pipe_steps = copy.deepcopy(baseline_model.steps)
     pipe_steps.insert(-1,
         ('drop_correlated', SmartCorrelatedSelection(selection_method='model_performance',
                                                      estimator=baseline_model[-1],
                                                      cv=skf))
     )
+    corr_feature_sel_ml_based_pipe = Pipeline(pipe_steps)
+    corr_feature_sel_ml_based_pipe[:-1].fit(X_train[selected_features_filter_methods],
+                                            y_train)
+    corr_feature_set = (
+        corr_feature_sel_ml_based_pipe
+        .named_steps['drop_correlated']
+        .get_feature_names_out()
+    )
+    message = (
+        "End of smart correlated feature selection. "
+        f"{len(corr_feature_set)} features selected."
+    )
+    logger.info(message)
+
+    # RFA selection
+    cat_vars = [col for col in (X_train[corr_feature_set]
+                                .select_dtypes('category')
+                                .columns)]
+    num_vars = [col for col in X_train[corr_feature_set].columns
+                    if col not in cat_vars]
+    baseline_model = get_model(X_train[corr_feature_set],cat_vars,num_vars,
+                               model_type=ModelType.LGBM)
+    pipe_steps = copy.deepcopy(baseline_model.steps)
+    threshold_rfa = 0.001
     pipe_steps.insert(-1,
         ('rfa_selection', RecursiveFeatureAddition(estimator=baseline_model[-1],
                                                    cv=skf,
                                                    threshold=threshold_rfa))
     )
+    rfa_feature_sel_ml_based_pipe = Pipeline(pipe_steps)
+    rfa_feature_sel_ml_based_pipe[:-1].fit(X_train[corr_feature_set], y_train)
+    final_feature_set = (
+        rfa_feature_sel_ml_based_pipe
+        .named_steps['rfa_selection']
+        .get_feature_names_out()
+    )
 
-    feature_sel_ml_based_pipe = Pipeline(pipe_steps)
-    feature_sel_ml_based_pipe[:-1].fit(X_train[selected_features_filter_methods], y_train)
-    final_feature_set = feature_sel_ml_based_pipe[-2].get_feature_names_out()
+    message = (
+        "End of RFA feature selection. "
+        f"{len(final_feature_set)} features selected."
+        "\nEnd of feature selection by ML methods."
+    )
+    logger.info(message)
 
-    return final_feature_set
+    return {'filter_methods_feature_set': selected_features_filter_methods,
+            'smart_corr_feature_set': corr_feature_set,
+            'final_feature_set': final_feature_set}
 
 def hyperparameters_tuning(X_train: pd.DataFrame,
                            y_train: pd.DataFrame,
-                           features: List[str],
-                           random_state: int,
                            n_trials: int,
+                           target_name: str,
+                           random_state: int,
                            nfolds_cv: int):
     """
     """
-
     sampler = optuna.samplers.TPESampler(seed=random_state)
     study = optuna.create_study(study_name='optmization_study',
                                 directions=['maximize'],
                                 sampler=sampler)
-    X_train_new = X_train[features].copy()
+    y_train = y_train[target_name]
     base_model_type = ModelType.LGBM
     validation_type = MetricType.TRAIN_TEST_CV_PREDICT
     get_model_func = get_model
     study.optimize(lambda trial: objective(trial,
-                                           X_train_new, y_train,
+                                           X_train, y_train,
                                            validation_type=validation_type,
                                            with_std_penalization=True,
                                            feature_selection=False,
@@ -320,9 +349,103 @@ def hyperparameters_tuning(X_train: pd.DataFrame,
     model_best_hyperparams = study.best_trial.params
     return model_best_hyperparams
 
-def train_final_model(X_train: pd.DataFrame, y_train: pd.DataFrame,
+def _calculate_probas(model,X_dev,y_dev, nfolds_cv):
+
+    skf = StratifiedKFold(nfolds_cv)
+    y_proba_oos = cross_val_predict(model, X_dev, y_dev,
+                                    method='predict_proba', cv=skf)[:,1]
+    y_proba_oos = pd.Series(y_proba_oos, index=X_dev.index, name='proba')
+    return y_proba_oos
+
+def _calulate_scores(y_true, y_proba,
+                     random_state):
+
+    y_proba_df = pd.DataFrame({'proba': y_proba},
+                               index=y_true.index)
+    quant_transf = QuantileTransformer(random_state=random_state).set_output(transform='pandas')
+    quant_transf.fit(y_proba_df)
+    score = (1-pd.Series(quant_transf.transform(y_proba_df).proba,
+                               index=y_true.index, name='score'))*1000
+
+    return score
+
+def _get_discretizers(y_true,score,monotonic_trend='auto',
+                     n_ratings=5,max_n_bins=None,min_n_bins=None,
+                     min_event_rate_diff=0,
+                     prebinning_method='cart', solver='cp', divergence='iv',
+                     max_n_prebins=20, min_prebin_size=0.05, min_bin_size=None,
+                     max_bin_size=None, min_bin_n_nonevent=None,
+                     max_bin_n_nonevent=None, min_bin_n_event=None,
+                     max_bin_n_event=None, max_pvalue=None,
+                     max_pvalue_policy='consecutive', gamma=0,
+                     outlier_detector=None, outlier_params=None, class_weight=None,
+                     cat_cutoff=None, cat_unknown=None, user_splits=None,
+                     user_splits_fixed=None, special_codes=None, split_digits=None,
+                     mip_solver='bop', time_limit=100, verbose=False):
+    if n_ratings is not None:
+        max_n_bins = n_ratings
+        min_n_bins = n_ratings
+    disc_opt = optbinning.OptimalBinning(max_n_bins=max_n_bins,
+                                         min_n_bins=min_n_bins,
+                                         monotonic_trend=monotonic_trend,
+                                         min_event_rate_diff=min_event_rate_diff,
+                                         prebinning_method=prebinning_method,
+                                         solver=solver,
+                                         divergence=divergence,
+                                         max_n_prebins=max_n_prebins,
+                                         min_prebin_size=min_prebin_size,
+                                         min_bin_size=min_bin_size,
+                                         max_bin_size=max_bin_size,
+                                         min_bin_n_nonevent=min_bin_n_nonevent,
+                                         max_bin_n_nonevent=max_bin_n_nonevent,
+                                         min_bin_n_event=min_bin_n_event,
+                                         max_bin_n_event=max_bin_n_event,
+                                         max_pvalue=max_pvalue,
+                                         max_pvalue_policy=max_pvalue_policy,
+                                         gamma=gamma,
+                                         outlier_detector=outlier_detector,
+                                         outlier_params=outlier_params,
+                                         class_weight=class_weight,
+                                         cat_cutoff=cat_cutoff,
+                                         cat_unknown=cat_unknown,
+                                         user_splits=user_splits,
+                                         user_splits_fixed=user_splits_fixed,
+                                         special_codes=special_codes,
+                                         split_digits=split_digits,
+                                         mip_solver=mip_solver,
+                                         time_limit=time_limit,
+                                         verbose=verbose)
+    disc_opt.fit(score, y_true)
+    faixas_opt = disc_opt.splits.tolist()
+    return faixas_opt
+
+def ratings_optimization(X_train: pd.DataFrame,
+                         y_train: pd.DataFrame,
+                         best_hyperparameters: Dict[str, Any],
+                         nratings: int,
+                         target_name: str,
+                         random_state: int,
+                         nfolds_cv: int):
+    """
+    """
+    cat_vars = [col for col in (X_train.select_dtypes('category').columns)]
+    num_vars = [col for col in X_train.columns
+                    if col not in cat_vars]
+    model = get_model(X_train,cat_vars,num_vars,
+                      model_type=ModelType.LGBM,
+                      params=best_hyperparameters)
+    y_train = y_train[target_name]
+    y_proba_oos = _calculate_probas(model,X_train,y_train,nfolds_cv)
+    score_oos = _calulate_scores(y_train,y_proba_oos,random_state)
+    ratings_limits = _get_discretizers(y_train,score_oos, n_ratings=nratings,
+                                       monotonic_trend='descending')
+    return ratings_limits
+
+def train_final_model(X_train: pd.DataFrame,
+                      y_train: pd.DataFrame,
+                      hyperparams: Dict[str, Any],
                       ratings: Union[List[float], Dict[str,float]],
-                      random_state: int, hyperparams: Dict,
+                      random_state: int,
                       nfolds_cv: Union[int,None] = None)-> CustomLGBMClassifier:
     """
     """

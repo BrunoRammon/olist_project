@@ -38,6 +38,10 @@ best_hyperparameters:
   type: json.JSONDataset
   filepath: data/05_model_input/best_hyperparameters.json
 
+ratings_limits:
+  type: json.JSONDataset
+  filepath: data/05_model_input/ratings_limits.json
+
 custom_lgbm_model:
   type: pickle.PickleDataset
   filepath: data/06_models/custom_lgbm_model.pkl
