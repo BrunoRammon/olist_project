@@ -1,6 +1,5 @@
 from sklearn.metrics import roc_auc_score
 import matplotlib.pyplot as plt
-import scikitplot as skplt
 import numpy as np
 import shap
 import pandas as pd
@@ -11,6 +10,13 @@ import plotly.graph_objects as go
 from scipy.stats import ks_2samp
 from plotly.subplots import make_subplots
 from sklearn.model_selection import learning_curve
+from olist_project.utils.scikitplot import (
+    _roc,
+    _precision_recall,
+    _ks_statistic,
+    _lift_curve,
+    _cumulative_gain
+)
 
 def _configure_axes(ax, title_names, secundary_color, y_inf_lim=0.0,
                    turn_off_legend=True, xlabelrotation=0.0,
@@ -165,21 +171,6 @@ def _annotate_first_and_last_points_time_series(ax,stressed_color,
 def _calculate_auc(df_probas):
     auc = roc_auc_score(df_probas['target'],df_probas['probas'])
     return auc
-
-def _roc(y_target, y_probas, ax):
-    return skplt.metrics.plot_roc(y_target, y_probas, ax=ax)
-
-def _ks_statistic(y_target, y_probas, ax):
-    return skplt.metrics.plot_ks_statistic(y_target, y_probas, ax=ax)
-
-def _precision_recall(y_target, y_probas, ax):
-    return skplt.metrics.plot_precision_recall(y_target, y_probas, ax=ax)
-
-def _cumulative_gain(y_target, y_probas, ax):
-    return skplt.metrics.plot_cumulative_gain(y_target, y_probas, ax=ax)
-
-def _lift_curve(y_target, y_probas, ax):
-    return skplt.metrics.plot_lift_curve(y_target, y_probas, ax=ax)
 
 def calculate_shap_values(model, X):
     explainer = shap.TreeExplainer(model)

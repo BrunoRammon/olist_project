@@ -6,7 +6,7 @@ import numpy as np
 from lightgbm import LGBMClassifier
 from xgboost import XGBClassifier
 from catboost import CatBoostClassifier
-from feature_engine.encoding import RareLabelEncoder, CountFrequencyEncoder
+from feature_engine.encoding import RareLabelEncoder
 from feature_engine.imputation import CategoricalImputer, AddMissingIndicator
 from feature_engine.discretisation import EqualFrequencyDiscretiser
 from feature_engine.wrappers import SklearnTransformerWrapper
@@ -31,11 +31,6 @@ from kedro.config import OmegaConfigLoader
 from kedro.framework.project import settings
 from tabulate import tabulate
 from olist_project.utils import plot_metrics
-
-project_path = '/home/bruno/Documents/Datarisk/Projetos/ipiranga/modelo-credito-rede/'
-conf_path = project_path + '/' + settings.CONF_SOURCE
-conf_loader = OmegaConfigLoader(conf_source=conf_path, env="local")
-RANDOM_STATE = conf_loader["parameters"]['random_state']
 
 class MetricType(Enum):
     ALL = auto()
@@ -180,19 +175,19 @@ class ModelType(Enum):
     DT = "decision_tree"
     LOGREG = "logistic_regression"
 
-    def get_model(self, params):
+    def get_model(self, params, random_state=42):
         if self == ModelType.LGBM:
-            return LGBMClassifier(verbosity=-1, random_state=RANDOM_STATE, **params)
+            return LGBMClassifier(verbosity=-1, random_state=random_state, **params)
         elif self == ModelType.XGB:
-            return XGBClassifier(verbosity=0, random_state=RANDOM_STATE, **params)
+            return XGBClassifier(verbosity=0, random_state=random_state, **params)
         elif self == ModelType.CAT:
-            return CatBoostClassifier(verbose=0, random_state=RANDOM_STATE, **params)
+            return CatBoostClassifier(verbose=0, random_state=random_state, **params)
         elif self == ModelType.RF:
-            return RandomForestClassifier(verbose=0, random_state=RANDOM_STATE, **params)
+            return RandomForestClassifier(verbose=0, random_state=random_state, **params)
         elif self == ModelType.DT:
-            return DecisionTreeClassifier(random_state=RANDOM_STATE, **params)
+            return DecisionTreeClassifier(random_state=random_state, **params)
         elif self == ModelType.LOGREG:
-            return LogisticRegression(verbose=0, random_state=RANDOM_STATE, **params)
+            return LogisticRegression(verbose=0, random_state=random_state, **params)
 
     def get_default_hyperparameter_space(self, trial):
         if self == ModelType.LGBM:
@@ -296,7 +291,8 @@ def objective(trial, X_dev, y_dev, cohort_dev=None,
               feature_selection=False,
               min_n_features=10,
               max_shap_sample = 20000,
-              performance_group=None
+              performance_group=None,
+              random_state=42,
               ):
 
     if get_hyperparameters_function is not None:
@@ -327,7 +323,7 @@ def objective(trial, X_dev, y_dev, cohort_dev=None,
         estimator = model[-1] if isinstance(model,Pipeline) else model
         X_dev_transf_sampled = (
             X_dev_transf.sample(max_shap_sample,
-                                random_state=RANDOM_STATE)
+                                random_state=random_state)
                 if len(X_dev_transf) > max_shap_sample
                     else X_dev_transf
         )
