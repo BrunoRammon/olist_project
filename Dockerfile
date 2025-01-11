@@ -2,9 +2,8 @@ ARG BASE_IMAGE=python:3.9-slim
 FROM $BASE_IMAGE as runtime-environment
 
 # to unpickle lgbm model it is necessary to install libgomp1
-RUN apt-get update && apt-get install -y --no-install-recommends apt-utils && \
-    apt-get -y install curl && \
-    apt-get install libgomp1
+RUN apt-get update && apt-get install -y libgomp1 && rm -rf /var/lib/apt/lists/*
+
 
 # update pip and install uv
 RUN python -m pip install -U "pip>=21.2"
