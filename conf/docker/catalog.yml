@@ -1,0 +1,200 @@
+"raw_{name}":
+  type: pandas.ParquetDataset
+  filepath: s3://olist-project-data/data/01_raw/{name}.parquet
+  credentials: dev_s3
+
+"pre_{name}":
+  type: pandas.ParquetDataset
+  filepath: s3://olist-project-data/data/02_intermediate/{name}.parquet
+  credentials: dev_s3
+
+"{namespace}.audience":
+  type: pandas.ParquetDataset
+  filepath: s3://olist-project-data/data/03_primary/{namespace}_audience.parquet
+  credentials: dev_s3
+
+"{namespace}.spine":
+  type: pandas.ParquetDataset
+  filepath: s3://olist-project-data/data/04_feature/{namespace}_spine.parquet
+  credentials: dev_s3
+
+"{namespace}.feature_{name}":
+  type: pandas.ParquetDataset
+  filepath: s3://olist-project-data/data/04_feature/{namespace}_{name}.parquet
+  credentials: dev_s3
+
+abt:
+  type: pandas.ParquetDataset
+  filepath: s3://olist-project-data/data/05_model_input/abt.parquet
+  credentials: dev_s3
+
+"{name}_train":
+  type: pandas.ParquetDataset
+  filepath: s3://olist-project-data/data/05_model_input/{name}_train.parquet
+  credentials: dev_s3
+
+"{name}_test_oot":
+  type: pandas.ParquetDataset
+  filepath: s3://olist-project-data/data/05_model_input/{name}_test_oot.parquet
+  credentials: dev_s3
+
+features_set:
+  type: json.JSONDataset
+  filepath: s3://olist-project-data/data/05_model_input/features_set.json
+  credentials: dev_s3
+
+best_hyperparameters:
+  type: json.JSONDataset
+  filepath: s3://olist-project-data/data/05_model_input/best_hyperparameters.json
+  credentials: dev_s3
+
+ratings_limits:
+  type: json.JSONDataset
+  filepath: s3://olist-project-data/data/05_model_input/ratings_limits.json
+  credentials: dev_s3
+
+custom_lgbm_model:
+  type: pickle.PickleDataset
+  filepath: s3://olist-project-data/data/06_models/custom_lgbm_model.pkl
+  credentials: dev_s3
+
+output:
+  type: pandas.ParquetDataset
+  filepath: s3://olist-project-data/data/07_model_output/output.parquet
+  credentials: dev_s3
+
+#############################################################################################################
+########################################    MONITORING   ####################################################
+#############################################################################################################
+
+scored_history_partitioned:
+  type: partitions.PartitionedDataset
+  dataset: pandas.ParquetDataset
+  path: s3://olist-project-data/data/08_reporting/scored_history_partitioned.parquet
+  credentials: dev_s3
+
+target_history_partitioned:
+  type: partitions.PartitionedDataset
+  dataset: pandas.ParquetDataset
+  path: s3://olist-project-data/data/08_reporting/target_history_partitioned.parquet
+  credentials: dev_s3
+
+scored_history:
+  type: pandas.ParquetDataset
+  filepath: s3://olist-project-data/data/08_reporting/scored_history.parquet
+  credentials: dev_s3
+
+target_history:
+  type: pandas.ParquetDataset
+  filepath: s3://olist-project-data/data/08_reporting/target_history.parquet
+  credentials: dev_s3
+
+metrics_by_month:
+  type: pandas.ParquetDataset
+  filepath: s3://olist-project-data/data/08_reporting/performance_monitoring/metrics_by_month.parquet
+  credentials: dev_s3
+
+metrics_by_period:
+  type: pandas.ParquetDataset
+  filepath: s3://olist-project-data/data/08_reporting/performance_monitoring/metrics_by_period.parquet
+  credentials: dev_s3
+
+rating_metrics_by_month:
+  type: pandas.ParquetDataset
+  filepath: s3://olist-project-data/data/08_reporting/performance_monitoring/rating_metrics_by_month.parquet
+  credentials: dev_s3
+
+rating_metrics_by_period:
+  type: pandas.ParquetDataset
+  filepath: s3://olist-project-data/data/08_reporting/performance_monitoring/rating_metrics_by_period.parquet
+  credentials: dev_s3
+
+metrics_plot:
+  type: plotly.HTMLDataset
+  filepath: s3://olist-project-data/data/08_reporting/performance_monitoring/metrics_plot.html
+  credentials: dev_s3
+
+rating_metrics_plot:
+  type: plotly.HTMLDataset
+  filepath: s3://olist-project-data/data/08_reporting/performance_monitoring/rating_metrics_plot.html
+  credentials: dev_s3
+
+feature_metrics_by_month:
+  type: pandas.ParquetDataset
+  filepath: s3://olist-project-data/data/08_reporting/performance_monitoring/feature_metrics_by_month.parquet
+  credentials: dev_s3
+
+feature_metrics_by_period:
+  type: pandas.ParquetDataset
+  filepath: s3://olist-project-data/data/08_reporting/performance_monitoring/feature_metrics_by_period.parquet
+  credentials: dev_s3
+
+feature_metrics_plot:
+  type: plotly.HTMLDataset
+  filepath: s3://olist-project-data/data/08_reporting/performance_monitoring/feature_metrics_plot.html
+  credentials: dev_s3
+
+features_iv_plot:
+  type: plotly.HTMLDataset
+  filepath: s3://olist-project-data/data/08_reporting/performance_monitoring/features_iv_plot.html
+  credentials: dev_s3
+
+customers_volume_by_month:
+  type: pandas.ParquetDataset
+  filepath: s3://olist-project-data/data/08_reporting/prediction_monitoring/customers_volume_by_month.parquet
+  credentials: dev_s3
+
+customers_volume_by_month_plot:
+  type: plotly.HTMLDataset
+  filepath: s3://olist-project-data/data/08_reporting/prediction_monitoring/customers_volume_by_month_plot.html
+  credentials: dev_s3
+
+ratings_volume_by_month:
+  type: pandas.ParquetDataset
+  filepath: s3://olist-project-data/data/08_reporting/prediction_monitoring/ratings_volume_by_month.parquet
+  credentials: dev_s3
+
+ratings_volume_by_month_plot:
+  type: plotly.HTMLDataset
+  filepath: s3://olist-project-data/data/08_reporting/prediction_monitoring/ratings_volume_by_month_plot.html
+  credentials: dev_s3
+
+migration_matrix_plot:
+  type: plotly.HTMLDataset
+  filepath: s3://olist-project-data/data/08_reporting/prediction_monitoring/migration_matrix_plot.html
+  credentials: dev_s3
+
+features_groups_volume_by_month:
+  type: pandas.ParquetDataset
+  filepath: s3://olist-project-data/data/08_reporting/prediction_monitoring/features_groups_volume_by_month.parquet
+  credentials: dev_s3
+
+features_statistics_by_month:
+  type: pandas.ParquetDataset
+  filepath: s3://olist-project-data/data/08_reporting/prediction_monitoring/features_statistics_by_month.parquet
+  credentials: dev_s3
+
+features_statistics_plot:
+  type: plotly.HTMLDataset
+  filepath: s3://olist-project-data/data/08_reporting/prediction_monitoring/features_statistics_plot.html
+  credentials: dev_s3
+
+features_psi_plot:
+  type: plotly.HTMLDataset
+  filepath: s3://olist-project-data/data/08_reporting/prediction_monitoring/features_psi_plot.html
+  credentials: dev_s3
+
+shap_values:
+  type: pandas.ParquetDataset
+  filepath: s3://olist-project-data/data/08_reporting/shap_monitoring/shap_values.parquet
+  credentials: dev_s3
+
+shap_summary_plot:
+  type: matplotlib.MatplotlibWriter
+  filepath: s3://olist-project-data/data/08_reporting/shap_monitoring/shap_summary_plot.png
+  credentials: dev_s3
+
+shap_feature_importance_plot:
+  type: plotly.HTMLDataset
+  filepath: s3://olist-project-data/data/08_reporting/shap_monitoring/shap_feature_importance_plot.html
+  credentials: dev_s3

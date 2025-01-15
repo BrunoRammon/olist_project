@@ -20,3 +20,26 @@ run:
 	($(ACTIVATE_ENVIROMENT) ; kedro run)
 start_mlflow_server:
 	($(ACTIVATE_ENVIROMENT) ; mlflow server --host 127.0.0.1 --port 8080 --backend-store-uri ./mlflow/)
+kedro_docker_build:
+	($(ACTIVATE_ENVIROMENT) ; kedro docker build)
+kedro_docker_run:
+	($(ACTIVATE_ENVIROMENT) ; kedro docker run \
+							  --docker-args "--env-file ./conf/docker/.env" \
+							  --env=docker)
+docker_build:
+	($(ACTIVATE_ENVIROMENT) ; docker build --build-arg KEDRO_UID=1000 \
+										   --build-arg KEDRO_GID=1000 \
+										   --build-arg BASE_IMAGE=python:3.11-slim \
+										   -t olist_project .)
+
+docker_run:
+	($(ACTIVATE_ENVIROMENT) ; docker run -v ./conf/local:/home/kedro_docker/conf/local \
+										 -v ./data:/home/kedro_docker/data \
+										 -v ./logs:/home/kedro_docker/logs \
+										 -v ./notebooks:/home/kedro_docker/notebooks \
+										 -v ./references:/home/kedro_docker/references \
+										 -v ./results:/home/kedro_docker/results \
+										 --rm --name olist_project-run \
+										 --env-file ./conf/docker/.env \
+										 olist_project kedro run --env=docker)
+	
