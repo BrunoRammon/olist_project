@@ -10,7 +10,7 @@ RUN python -m pip install -U "pip>=21.2"
 RUN pip install uv
 
 # install project requirements
-COPY requirements/dev /tmp/requirements.txt
+COPY requirements/prd /tmp/requirements.txt
 RUN uv pip install --system --no-cache-dir -r /tmp/requirements.txt && rm -f /tmp/requirements.txt
 
 # add kedro user
