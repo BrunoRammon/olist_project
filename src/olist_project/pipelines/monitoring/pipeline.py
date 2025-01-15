@@ -54,7 +54,7 @@ def create_pipeline(**kwargs) -> Pipeline:
             func=performance_monitoring,
             inputs=["scored_history",
                     "target_history",
-                    "params:modeling.features",
+                    "features_set",
                     "params:audience_building.id_col",
                     "params:audience_building.cohort_col",
                     "params:modeling.target",
@@ -91,7 +91,7 @@ def create_pipeline(**kwargs) -> Pipeline:
             func=shap_monitoring,
             inputs=["shap_values",
                     "scored_history",
-                    "params:modeling.features",],
+                    "features_set",],
             outputs=[
                 "shap_summary_plot",
                 "shap_feature_importance_plot"
@@ -102,7 +102,7 @@ def create_pipeline(**kwargs) -> Pipeline:
             func=prediction_monitoring,
             inputs=["scored_history",
                     "shap_values",
-                    "params:modeling.features",
+                    "features_set",
                     "params:audience_building.id_col",
                     "params:audience_building.cohort_col",
                     "params:modeling.start_cohort",

@@ -596,7 +596,7 @@ def _generate_iv_plots(
 def performance_monitoring(
     scored_history: pd.DataFrame,
     target_history: pd.DataFrame,
-    features:  List[str],
+    features: Dict[str,List[str]],
     id_col: str,
     cohort_col: str,
     target_name: str,
@@ -604,7 +604,7 @@ def performance_monitoring(
     split_cohort: int,
     final_cohort: int,
 ) -> np.array:
-
+    features = features['final_feature_set']
     id_columns = [id_col,cohort_col]
     df = (
         scored_history.filter(id_columns + features + ['proba', 'score', 'rating'])
@@ -1338,7 +1338,7 @@ def _generate_psi_plots(
 def prediction_monitoring(
     scored_history: pd.DataFrame,
     df_shap: pd.DataFrame,
-    features: List[str],
+    features: Dict[str,List[str]],
     id_col: str,
     cohort_col: str,
     start_cohort: int,
@@ -1348,6 +1348,7 @@ def prediction_monitoring(
     """
 
     """
+    features = features['final_feature_set']
     features = [feat for feat in features if feat != 'sel_seller_state']
     id_columns = [id_col, cohort_col]
     df = (
@@ -1582,12 +1583,12 @@ def generate_shap_values(
 def shap_monitoring(
     df_shap_values: pd.DataFrame,
     score_history: pd.DataFrame,
-    features: List[str]
+    features: Dict[str,List[str]]
 ):
     """
     
     """
-
+    features = features['final_feature_set']
     shap_summary_plot = _generate_shap_values_plot(df_shap_values,
                                                    score_history,
                                                    features,
@@ -1710,7 +1711,7 @@ def generate_scoring_report(df_scoring: pd.DataFrame,
     data_quality_report.run(reference_data=df_ref,
                             current_data=df_cur,
                             column_mapping=column_mapping)
-    data_quality_report.save_html("./data/08_reporting/reporting/scoring_report.html")
+    data_quality_report.save_html("./data/08_reporting/evidently_reports/scoring_report.html")
 
 def _reference_current_target_dataset(df_scoring: pd.DataFrame,
                                       df_spine: pd.DataFrame,
@@ -1763,4 +1764,4 @@ def generate_target_report(df_scoring: pd.DataFrame,
     target_report.run(reference_data=df_ref,
                             current_data=df_cur,
                             column_mapping=column_mapping)
-    target_report.save_html("./data/08_reporting/reporting/target_report.html")
+    target_report.save_html("./data/08_reporting/evidently_reports/target_report.html")
