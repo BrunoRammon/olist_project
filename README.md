@@ -94,9 +94,7 @@ There are two types of scoring that can be performed:
     ```
 
 # Future enhancements
-- Create feature_selection, hyperparameters optimization and binning optmization nodes
-- Put data in S3
+- Add terraform to automate cloud formation
 - MLflow artifact store in S3 and backend store in RDS or other
-- Containerize the application
 - Use of docstring in functions nodes to document the code
 - refactorate monitoring codes
