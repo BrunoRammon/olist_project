@@ -16,7 +16,7 @@ from .nodes import (
 
 
 def create_pipeline(**kwargs) -> Pipeline:
-    return pipeline([
+    pipe_template = pipeline([
         node(
             func=preprocessing_items,
             inputs=["raw_order_items",
@@ -74,3 +74,14 @@ def create_pipeline(**kwargs) -> Pipeline:
             name="preprocessing_geolocation_node"
         ),
     ])
+
+    pipe_modeling = pipeline(
+        pipe_template,
+        namespace='modeling'
+    )
+    pipe_scoring = pipeline(
+        pipe_template,
+        namespace='scoring'
+    )
+
+    return pipe_modeling + pipe_scoring

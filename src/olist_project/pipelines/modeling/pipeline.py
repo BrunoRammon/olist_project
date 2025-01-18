@@ -16,12 +16,12 @@ from .nodes import (
 
 
 def create_pipeline(**kwargs) -> Pipeline:
-    return pipeline([
+    pipe_template = pipeline([
         node(
             func=build_abt,
             inputs=[
-                "modeling.spine",
-                "modeling.feature_table",
+                "spine",
+                "feature_table",
                 "params:audience_building.id_col",
                 "params:audience_building.cohort_col",
             ],
@@ -32,12 +32,12 @@ def create_pipeline(**kwargs) -> Pipeline:
             func=train_oot_split,
             inputs=[
                 "abt",
-                "params:modeling.start_cohort",
-                "params:modeling.split_cohort",
-                "params:modeling.end_cohort",
+                "params:start_cohort",
+                "params:split_cohort",
+                "params:end_cohort",
                 "params:audience_building.id_col",
                 "params:audience_building.cohort_col",
-                "params:modeling.target",
+                "params:target",
             ],
             outputs=[
                 "X_train",
@@ -55,8 +55,8 @@ def create_pipeline(**kwargs) -> Pipeline:
             inputs=[
                 "X_train",
                 "y_train",
-                "params:modeling.target",
-                "params:modeling.nfolds_cv"
+                "params:target",
+                "params:nfolds_cv"
             ],
             outputs="features_set",
             name="feature_selection_node",
@@ -66,12 +66,12 @@ def create_pipeline(**kwargs) -> Pipeline:
             func=train_oot_split,
             inputs=[
                 "abt",
-                "params:modeling.start_cohort",
-                "params:modeling.split_cohort",
-                "params:modeling.end_cohort",
+                "params:start_cohort",
+                "params:split_cohort",
+                "params:end_cohort",
                 "params:audience_building.id_col",
                 "params:audience_building.cohort_col",
-                "params:modeling.target",
+                "params:target",
                 "features_set"
             ],
             outputs=[
@@ -90,10 +90,10 @@ def create_pipeline(**kwargs) -> Pipeline:
             inputs=[
                 "X_final_train",
                 "y_final_train",
-                "params:modeling.ntrials_optimization",
-                "params:modeling.target",
+                "params:ntrials_optimization",
+                "params:target",
                 "params:random_state",
-                "params:modeling.nfolds_cv"
+                "params:nfolds_cv"
             ],
             outputs="best_hyperparameters",
             name="hyperparameters_tuning_node",
@@ -105,10 +105,10 @@ def create_pipeline(**kwargs) -> Pipeline:
                 "X_final_train",
                 "y_final_train",
                 "best_hyperparameters",
-                "params:modeling.nratings",
-                "params:modeling.target",
+                "params:nratings",
+                "params:target",
                 "params:random_state",
-                "params:modeling.nfolds_cv"
+                "params:nfolds_cv"
             ],
             outputs="ratings_limits",
             name="ratings_optimization_node",
@@ -122,7 +122,7 @@ def create_pipeline(**kwargs) -> Pipeline:
                 "best_hyperparameters",
                 "ratings_limits",
                 "params:random_state",
-                "params:modeling.nfolds_cv"
+                "params:nfolds_cv"
             ],
             outputs="custom_lgbm_model",
             name="train_lgbm_node",
@@ -143,4 +143,16 @@ def create_pipeline(**kwargs) -> Pipeline:
             name="model_results_node",
             tags=["modeling-without-abt-update", "modeling-only-train"]
         ),
-    ], tags=["modeling", "modeling-without-preprocess"])
+    ], tags=["modeling-without-preprocess"])
+
+    pipe_modeling = pipeline(
+        pipe_template,
+        namespace='modeling',
+        parameters={
+            "params:audience_building.id_col",
+            "params:audience_building.cohort_col",
+            "params:random_state"
+        }
+    )
+
+    return pipe_modeling

@@ -7,7 +7,7 @@ from kedro.pipeline import Pipeline, pipeline, node
 from .nodes import ingest
 
 def create_pipeline(**kwargs) -> Pipeline:
-    return pipeline([
+    pipe_template = pipeline([
         node(
             func=ingest,
             inputs=["params:dataset_schemas"],
@@ -20,3 +20,20 @@ def create_pipeline(**kwargs) -> Pipeline:
             name="ingest_datasets_node"
         )
     ])
+
+    pipe_modeling = pipeline(
+        pipe_template,
+        namespace='modeling',
+        parameters={
+            "params:dataset_schemas"
+        }
+    )
+    pipe_scoring = pipeline(
+        pipe_template,
+        namespace='scoring',
+        parameters={
+            "params:dataset_schemas"
+        }
+    )
+
+    return pipe_modeling + pipe_scoring

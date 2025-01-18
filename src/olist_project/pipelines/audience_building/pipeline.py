@@ -4,7 +4,6 @@ generated using Kedro 0.19.10
 """
 
 from kedro.pipeline import Pipeline, pipeline, node
-from kedro.pipeline.modular_pipeline import pipeline as mod_pipe
 from .nodes import (
     build_initial_audience,
     build_audience_filters,
@@ -13,7 +12,7 @@ from .nodes import (
 
 
 def create_pipeline(**kwargs) -> Pipeline:
-    template_pipe = pipeline([
+    pipe_template = pipeline([
         node(
             func=build_initial_audience,
             inputs=[
@@ -53,27 +52,26 @@ def create_pipeline(**kwargs) -> Pipeline:
     ])
 
     namespace = "modeling"
-    modeling_pipe = mod_pipe(
-        pipe=template_pipe,
-        inputs=["pre_orders"],
+    modeling_pipe = pipeline(
+        pipe=pipe_template,
         parameters={
             "params:namespace.start_cohort": f"params:{namespace}.start_cohort",
             "params:namespace.end_cohort": f"params:{namespace}.end_cohort",
             "params:feature_engineering.historical_period": "params:feature_engineering.historical_period",
         },
         namespace=namespace,
-        tags=[namespace, f"{namespace}-without-preprocess"]
+        tags=[f"{namespace}-without-preprocess"]
     )
     namespace = "scoring"
-    scoring_pipe = mod_pipe(
-        pipe=template_pipe,
-        inputs=["pre_orders"],
+    scoring_pipe = pipeline(
+        pipe=pipe_template,
         parameters={
             "params:namespace.start_cohort": f"params:{namespace}.start_cohort",
             "params:namespace.end_cohort": f"params:{namespace}.end_cohort",
             "params:feature_engineering.historical_period": "params:feature_engineering.historical_period",
         },
         namespace=namespace,
-        tags=[namespace, f"{namespace}-without-preprocess"]
+        tags=[f"{namespace}-without-preprocess"]
     )
-    return modeling_pipe+scoring_pipe
+
+    return modeling_pipe + scoring_pipe

@@ -1,161 +1,161 @@
-"raw_{name}":
+"{namespace}.raw_{name}":
   type: pandas.ParquetDataset
-  filepath: data/01_raw/{name}.parquet
+  filepath: data/01_raw/{namespace}/{name}.parquet
 
-"pre_{name}":
+"{namespace}.pre_{name}":
   type: pandas.ParquetDataset
-  filepath: data/02_intermediate/{name}.parquet
+  filepath: data/02_intermediate/{namespace}/{name}.parquet
 
 "{namespace}.audience":
   type: pandas.ParquetDataset
-  filepath: data/03_primary/{namespace}_audience.parquet
+  filepath: data/03_primary/{namespace}/audience.parquet
 
 "{namespace}.spine":
   type: pandas.ParquetDataset
-  filepath: data/04_feature/{namespace}_spine.parquet
+  filepath: data/04_feature/{namespace}/spine.parquet
 
 "{namespace}.feature_{name}":
   type: pandas.ParquetDataset
-  filepath: data/04_feature/{namespace}_{name}.parquet
+  filepath: data/04_feature/{namespace}/{name}.parquet
 
-abt:
+"{namespace}.abt":
   type: pandas.ParquetDataset
-  filepath: data/05_model_input/abt.parquet
+  filepath: data/05_model_input/{namespace}/abt.parquet
 
-"{name}_train":
+"{namespace}.{name}_train":
   type: pandas.ParquetDataset
-  filepath: data/05_model_input/{name}_train.parquet
+  filepath: data/05_model_input/{namespace}/{name}_train.parquet
 
-"{name}_test_oot":
+"{namespace}.{name}_test_oot":
   type: pandas.ParquetDataset
-  filepath: data/05_model_input/{name}_test_oot.parquet
+  filepath: data/05_model_input/{namespace}/{name}_test_oot.parquet
 
-features_set:
+"{namespace}.features_set":
   type: json.JSONDataset
-  filepath: data/05_model_input/features_set.json
+  filepath: data/05_model_input/{namespace}/features_set.json
 
-best_hyperparameters:
+"{namespace}.best_hyperparameters":
   type: json.JSONDataset
-  filepath: data/05_model_input/best_hyperparameters.json
+  filepath: data/05_model_input/{namespace}/best_hyperparameters.json
 
-ratings_limits:
+"{namespace}.ratings_limits":
   type: json.JSONDataset
-  filepath: data/05_model_input/ratings_limits.json
+  filepath: data/05_model_input/{namespace}/ratings_limits.json
 
-custom_lgbm_model:
+"{namespace}.custom_lgbm_model":
   type: pickle.PickleDataset
-  filepath: data/06_models/custom_lgbm_model.pkl
+  filepath: data/06_models/{namespace}/custom_lgbm_model.pkl
 
-output:
+"{namespace}.output":
   type: pandas.ParquetDataset
-  filepath: data/07_model_output/output.parquet
+  filepath: data/07_model_output/{namespace}/output.parquet
 
 #############################################################################################################
 ########################################    MONITORING   ####################################################
 #############################################################################################################
 
-scored_history_partitioned:
+"{namespace}.scored_history_partitioned":
   type: partitions.PartitionedDataset
   dataset: pandas.ParquetDataset
-  path: data/08_reporting/scored_history_partitioned.parquet
+  path: data/08_reporting/{namespace}/scored_history_partitioned.parquet
 
-target_history_partitioned:
+"{namespace}.target_history_partitioned":
   type: partitions.PartitionedDataset
   dataset: pandas.ParquetDataset
-  path: data/08_reporting/target_history_partitioned.parquet
+  path: data/08_reporting/{namespace}/target_history_partitioned.parquet
 
-scored_history:
+"{namespace}.scored_history":
   type: pandas.ParquetDataset
-  filepath: data/08_reporting/scored_history.parquet
+  filepath: data/08_reporting/{namespace}/scored_history.parquet
 
-target_history:
+"{namespace}.target_history":
   type: pandas.ParquetDataset
-  filepath: data/08_reporting/target_history.parquet
+  filepath: data/08_reporting/{namespace}/target_history.parquet
 
-metrics_by_month:
+"{namespace}.metrics_by_month":
   type: pandas.ParquetDataset
-  filepath: data/08_reporting/performance_monitoring/metrics_by_month.parquet
+  filepath: data/08_reporting/{namespace}/performance_monitoring/metrics_by_month.parquet
 
-metrics_by_period:
+"{namespace}.metrics_by_period":
   type: pandas.ParquetDataset
-  filepath: data/08_reporting/performance_monitoring/metrics_by_period.parquet
+  filepath: data/08_reporting/{namespace}/performance_monitoring/metrics_by_period.parquet
 
-rating_metrics_by_month:
+"{namespace}.rating_metrics_by_month":
   type: pandas.ParquetDataset
-  filepath: data/08_reporting/performance_monitoring/rating_metrics_by_month.parquet
+  filepath: data/08_reporting/{namespace}/performance_monitoring/rating_metrics_by_month.parquet
 
-rating_metrics_by_period:
+"{namespace}.rating_metrics_by_period":
   type: pandas.ParquetDataset
-  filepath: data/08_reporting/performance_monitoring/rating_metrics_by_period.parquet
+  filepath: data/08_reporting/{namespace}/performance_monitoring/rating_metrics_by_period.parquet
 
-metrics_plot:
+"{namespace}.metrics_plot":
   type: plotly.HTMLDataset
-  filepath: data/08_reporting/performance_monitoring/metrics_plot.html
+  filepath: data/08_reporting/{namespace}/performance_monitoring/metrics_plot.html
 
-rating_metrics_plot:
+"{namespace}.rating_metrics_plot":
   type: plotly.HTMLDataset
-  filepath: data/08_reporting/performance_monitoring/rating_metrics_plot.html
+  filepath: data/08_reporting/{namespace}/performance_monitoring/rating_metrics_plot.html
 
-feature_metrics_by_month:
+"{namespace}.feature_metrics_by_month":
   type: pandas.ParquetDataset
-  filepath: data/08_reporting/performance_monitoring/feature_metrics_by_month.parquet
+  filepath: data/08_reporting/{namespace}/performance_monitoring/feature_metrics_by_month.parquet
 
-feature_metrics_by_period:
+"{namespace}.feature_metrics_by_period":
   type: pandas.ParquetDataset
-  filepath: data/08_reporting/performance_monitoring/feature_metrics_by_period.parquet
+  filepath: data/08_reporting/{namespace}/performance_monitoring/feature_metrics_by_period.parquet
 
-feature_metrics_plot:
+"{namespace}.feature_metrics_plot":
   type: plotly.HTMLDataset
-  filepath: data/08_reporting/performance_monitoring/feature_metrics_plot.html
+  filepath: data/08_reporting/{namespace}/performance_monitoring/feature_metrics_plot.html
 
-features_iv_plot:
+"{namespace}.features_iv_plot":
   type: plotly.HTMLDataset
-  filepath: data/08_reporting/performance_monitoring/features_iv_plot.html
+  filepath: data/08_reporting/{namespace}/performance_monitoring/features_iv_plot.html
 
-customers_volume_by_month:
+"{namespace}.customers_volume_by_month":
   type: pandas.ParquetDataset
-  filepath: data/08_reporting/prediction_monitoring/customers_volume_by_month.parquet
+  filepath: data/08_reporting/{namespace}/prediction_monitoring/customers_volume_by_month.parquet
 
-customers_volume_by_month_plot:
+"{namespace}.customers_volume_by_month_plot":
   type: plotly.HTMLDataset
-  filepath: data/08_reporting/prediction_monitoring/customers_volume_by_month_plot.html
+  filepath: data/08_reporting/{namespace}/prediction_monitoring/customers_volume_by_month_plot.html
 
-ratings_volume_by_month:
+"{namespace}.ratings_volume_by_month":
   type: pandas.ParquetDataset
-  filepath: data/08_reporting/prediction_monitoring/ratings_volume_by_month.parquet
+  filepath: data/08_reporting/{namespace}/prediction_monitoring/ratings_volume_by_month.parquet
 
-ratings_volume_by_month_plot:
+"{namespace}.ratings_volume_by_month_plot":
   type: plotly.HTMLDataset
-  filepath: data/08_reporting/prediction_monitoring/ratings_volume_by_month_plot.html
+  filepath: data/08_reporting/{namespace}/prediction_monitoring/ratings_volume_by_month_plot.html
 
-migration_matrix_plot:
+"{namespace}.migration_matrix_plot":
   type: plotly.HTMLDataset
-  filepath: data/08_reporting/prediction_monitoring/migration_matrix_plot.html
+  filepath: data/08_reporting/{namespace}/prediction_monitoring/migration_matrix_plot.html
 
-features_groups_volume_by_month:
+"{namespace}.features_groups_volume_by_month":
   type: pandas.ParquetDataset
-  filepath: data/08_reporting/prediction_monitoring/features_groups_volume_by_month.parquet
+  filepath: data/08_reporting/{namespace}/prediction_monitoring/features_groups_volume_by_month.parquet
 
-features_statistics_by_month:
+"{namespace}.features_statistics_by_month":
   type: pandas.ParquetDataset
-  filepath: data/08_reporting/prediction_monitoring/features_statistics_by_month.parquet
+  filepath: data/08_reporting/{namespace}/prediction_monitoring/features_statistics_by_month.parquet
 
-features_statistics_plot:
+"{namespace}.features_statistics_plot":
   type: plotly.HTMLDataset
-  filepath: data/08_reporting/prediction_monitoring/features_statistics_plot.html
+  filepath: data/08_reporting/{namespace}/prediction_monitoring/features_statistics_plot.html
 
-features_psi_plot:
+"{namespace}.features_psi_plot":
   type: plotly.HTMLDataset
-  filepath: data/08_reporting/prediction_monitoring/features_psi_plot.html
+  filepath: data/08_reporting/{namespace}/prediction_monitoring/features_psi_plot.html
 
-shap_values:
+"{namespace}.shap_values":
   type: pandas.ParquetDataset
-  filepath: data/08_reporting/shap_monitoring/shap_values.parquet
+  filepath: data/08_reporting/{namespace}/shap_monitoring/shap_values.parquet
 
-shap_summary_plot:
+"{namespace}.shap_summary_plot":
   type: matplotlib.MatplotlibWriter
-  filepath: data/08_reporting/shap_monitoring/shap_summary_plot.png
+  filepath: data/08_reporting/{namespace}/shap_monitoring/shap_summary_plot.png
 
-shap_feature_importance_plot:
+"{namespace}.shap_feature_importance_plot":
   type: plotly.HTMLDataset
-  filepath: data/08_reporting/shap_monitoring/shap_feature_importance_plot.html
+  filepath: data/08_reporting/{namespace}/shap_monitoring/shap_feature_importance_plot.html

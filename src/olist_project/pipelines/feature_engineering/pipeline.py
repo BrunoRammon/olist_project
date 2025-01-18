@@ -4,7 +4,6 @@ generated using Kedro 0.19.10
 """
 
 from kedro.pipeline import Pipeline, pipeline, node
-from kedro.pipeline.modular_pipeline import pipeline as mod_pipe
 from .nodes import (
     build_target,
     build_features_orders,
@@ -19,7 +18,7 @@ from .nodes import (
 
 
 def create_pipeline(**kwargs) -> Pipeline:
-    template_pipe = pipeline([
+    pipe_template = pipeline([
         node(
             func=build_target,
             inputs=[
@@ -149,9 +148,6 @@ def create_pipeline(**kwargs) -> Pipeline:
         ),
     ])
 
-    inputs = ["pre_orders", "pre_order_items",
-              "pre_order_reviews", "pre_order_payments",
-              "pre_customers", "pre_geolocation", "pre_sellers",]
     parameters = [
         "params:feature_engineering.orders.id_col",
         "params:feature_engineering.orders.cohort_info_col",
@@ -169,20 +165,18 @@ def create_pipeline(**kwargs) -> Pipeline:
         "params:feature_engineering.time_windows",
         "params:feature_engineering.performance_period",
     ]
-    modeling_pipe = mod_pipe(
-        pipe=template_pipe,
-        inputs=inputs,
-        parameters=parameters,
+    pipe_modeling = pipeline(
+        pipe=pipe_template,
         namespace="modeling",
-        tags=["modeling", "modeling-without-preprocess"]
+        parameters=parameters,
+        tags=["modeling-without-preprocess"]
     )
 
-    scoring_pipe = mod_pipe(
-        pipe=template_pipe,
-        inputs=inputs,
+    pipe_scoring = pipeline(
+        pipe=pipe_template,
         parameters=parameters,
         namespace="scoring",
-        tags=["scoring", "scoring-without-preprocess"]
+        tags=["scoring-without-preprocess"]
     )
 
-    return modeling_pipe+scoring_pipe
+    return pipe_modeling + pipe_scoring

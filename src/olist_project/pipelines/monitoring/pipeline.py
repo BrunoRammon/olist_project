@@ -17,7 +17,7 @@ from .nodes import (
 )
 
 def create_pipeline(**kwargs) -> Pipeline:
-    return pipeline([
+    pipe_template = pipeline([
         node(
             func=create_partitions,
             inputs="output",
@@ -26,7 +26,7 @@ def create_pipeline(**kwargs) -> Pipeline:
         ),
         node(
             func=create_partitions,
-            inputs="scoring.spine",
+            inputs="spine",
             outputs="target_history_partitioned",
             name="create_partition_target_history_node",
         ),
@@ -141,4 +141,26 @@ def create_pipeline(**kwargs) -> Pipeline:
             outputs=None,
             name="generate_target_report_node"
         ),
-    ], tags=["scoring", "scoring-without-preprocess"])
+    ], tags=["scoring-without-preprocess"])
+
+    pipe_scoring = pipeline(
+        pipe=pipe_template,
+        namespace="scoring",
+        inputs={
+            "custom_lgbm_model": "modeling.custom_lgbm_model",
+            "features_set": "modeling.features_set"
+        },
+        parameters={
+            "params:modeling.target",
+            "params:audience_building.id_col",
+            "params:audience_building.cohort_col",
+            "params:modeling.start_cohort",
+            "params:modeling.split_cohort",
+            "params:modeling.end_cohort",
+            "params:monitoring.shap.sample_size",
+            "params:random_state"
+        },
+        tags=["scoring-without-preprocess"]
+    )
+
+    return pipe_scoring
