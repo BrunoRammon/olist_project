@@ -173,7 +173,11 @@ def _calculate_auc(df_probas):
     return auc
 
 def calculate_shap_values(model, X):
-    explainer = shap.TreeExplainer(model)
+    from sklearn.linear_model import LogisticRegression
+    if isinstance(model, LogisticRegression):
+        explainer = shap.LinearExplainer(model, X)
+    else:
+        explainer = shap.TreeExplainer(model)
     shap_values = explainer.shap_values(X)
     expected_value = explainer.expected_value
 
@@ -533,6 +537,8 @@ def _train_test_validation_volumetry_performance(
     roc_auc_func = lambda x: roc_auc_score(x['target'],x['probas'])
     ks_func = lambda x: ks_2samp(x['probas'][x['target'] == 0], x['probas'][x['target'] == 1]).statistic
 
+    max_inad_global = 0
+    max_vol_global = 0
     for df, group,line_type  in zip([df_train_probas,df_test_probas,df_val_probas],
                                     ['Treino','Validação','Teste'],
                                     ['solid','dash','dot']):
@@ -545,7 +551,10 @@ def _train_test_validation_volumetry_performance(
             .reset_index()
             .sort_values('time')
         )
-
+        max_inad_local = df_aux['Inadimplência'].max()
+        max_inad_global = max_inad_local if max_inad_local > max_inad_global else max_inad_local
+        max_vol_local = df_aux['Volume'].max()
+        max_vol_global = max_vol_local if max_vol_local > max_vol_global else max_vol_local
         line_default = go.Scatter(x=df_aux['time'].dt.strftime('%m/%Y'),
                                   y=df_aux['Inadimplência'],
                                   name=f"Inadimplência ({group})",
@@ -588,13 +597,37 @@ def _train_test_validation_volumetry_performance(
     fig.update_layout(
         title_text="Gráficos de performance",
         showlegend=False,
-        yaxis=dict(range=[0,None],tickformat='.1%',title='Inadimplência'),
-        yaxis2=dict(range=[0,None],title='Volume'),
-        yaxis3=dict(tickformat='.1%',title='AUC'),
-        yaxis4=dict(tickformat='.1%',title='KS'),
-        width=800,
-        height=600
+        height=700
     )
+    fig.update_yaxes(
+        range=[0, max_inad_global * 1.05],
+        tickformat=".1%",
+        title_text="Inadimplência",
+        row=1, col=1,
+        secondary_y=False
+    )
+
+    fig.update_yaxes(
+        range=[0, max_vol_global * 1.05],
+        title_text="Volume",
+        row=1, col=1,
+        secondary_y=True
+    )
+
+    fig.update_yaxes(
+        range=[0.5, 1.05],
+        tickformat=".1%",
+        title_text="AUC",
+        row=2, col=1
+    )
+
+    fig.update_yaxes(
+        range=[0, 1.05],
+        tickformat=".1%",
+        title_text="KS",
+        row=3, col=1
+    )
+
     fig.show()
     if save_to_file:
         fig.write_image(f"{save_to_file}")
@@ -1071,3 +1104,42 @@ def train_test_validation_metrics_new(y_train, y_test, y_val,
         return figs
     if save_figures:
         return files_names
+
+def _plot_calibration_curve(y_true, y_prob, n_bins, ax):
+    """
+    Plots a calibration curve to compare predicted probabilities 
+    against actual observed frequencies.
+    """
+    from sklearn.calibration import CalibrationDisplay
+    disp = CalibrationDisplay.from_predictions(y_true, y_prob, n_bins=n_bins, ax=ax)
+    return disp
+
+def train_test_validation_calibration(y_train, y_val, y_test,
+                                      y_probas_train, y_probas_val, y_probas_test, 
+                                      n_bins=5,
+                                      save_figure=False,
+                                      saving_folder='.',
+                                      return_fig=False):
+    fig = plt.figure(figsize=(20,6))
+    names = ['Train', 'Validation', 'Test']
+    y_true_list = [y_train, y_val, y_test]
+    y_proba_list = [y_probas_train, y_probas_val, y_probas_test]
+    secundary_color = 'gray'
+    for i, (name, y_true, y_proba) in enumerate(zip(names,y_true_list,y_proba_list), start=1):
+        ax = plt.subplot(1,3,i)
+        _ = _plot_calibration_curve(y_true, y_proba, ax=ax, n_bins=n_bins)
+        ax.set_title('')
+        _configure_axes(ax, {'title':f'Calibration ({name})',
+                            'xtitle':f'Mean predicted probability',
+                            'ytitle':f'Fraction of positives'}, secundary_color,
+                            turn_off_legend=False)
+        ax.set_xlim(0.0,None)
+
+    filename = 'calibration_plot.png'
+    if save_figure:
+        save_to_file = f"{saving_folder}/{filename}"
+        plt.savefig(f"{save_to_file}")
+    plt.show()
+
+    if return_fig:
+        return {filename: fig}
