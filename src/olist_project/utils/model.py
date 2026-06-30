@@ -3,34 +3,17 @@ from typing import List, Dict, Any
 from enum import Enum,auto
 import pandas as pd
 import numpy as np
-from lightgbm import LGBMClassifier
-from xgboost import XGBClassifier
-from catboost import CatBoostClassifier
-from feature_engine.encoding import RareLabelEncoder
-from feature_engine.imputation import CategoricalImputer, AddMissingIndicator
-from feature_engine.discretisation import EqualFrequencyDiscretiser
-from feature_engine.wrappers import SklearnTransformerWrapper
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import FunctionTransformer
-from mlxtend.evaluate.time_series import GroupTimeSeriesSplit
 from sklearn.model_selection import cross_val_predict, cross_val_score
 from sklearn.model_selection import StratifiedKFold
 from sklearn.utils.validation import check_is_fitted
-from sklearn.preprocessing import QuantileTransformer
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     roc_auc_score, average_precision_score, brier_score_loss, log_loss
 )
-from sklearn.exceptions import NotFittedError
 from scipy.stats import ks_2samp
-import mlflow
-import optuna
-from kedro.config import OmegaConfigLoader
-from kedro.framework.project import settings
+
 from tabulate import tabulate
-from olist_project.utils import plot_metrics
+from fgcoop_solvency_model.utils import plot_metrics
 
 class MetricType(Enum):
     ALL = auto()
@@ -59,6 +42,7 @@ def _get_shap_importances(model, X):
 
 def _ts_cv_score(model,X, y, datetime_series, n_folds,test_size,
                       format_cohort='%Y%m'):
+    from mlxtend.evaluate.time_series import GroupTimeSeriesSplit
     cv_args = {"test_size": test_size, "n_splits": n_folds}
     cohort_int = datetime_series.dt.strftime(format_cohort).astype(int)
     X_ts = X.set_index(cohort_int)
@@ -99,6 +83,7 @@ def _test_cv_predict_by_group(model,X, y, n_folds, group):
     return auc_test.AUC.mean(), auc_test.AUC.std()
 
 def _y_proba_train(model,X,y):
+    from sklearn.exceptions import NotFittedError
     try:
         check_is_fitted(model)
     except NotFittedError:
@@ -177,22 +162,32 @@ class ModelType(Enum):
 
     def get_model(self, params, random_state=42):
         if self == ModelType.LGBM:
+            from lightgbm import LGBMClassifier
             return LGBMClassifier(verbosity=-1, random_state=random_state, **params)
         elif self == ModelType.XGB:
+            from xgboost import XGBClassifier
             return XGBClassifier(verbosity=0, random_state=random_state, **params)
         elif self == ModelType.CAT:
+            from catboost import CatBoostClassifier
             return CatBoostClassifier(verbose=0, random_state=random_state, **params)
         elif self == ModelType.RF:
+            from sklearn.ensemble import RandomForestClassifier
             return RandomForestClassifier(verbose=0, random_state=random_state, **params)
         elif self == ModelType.DT:
+            from sklearn.tree import DecisionTreeClassifier
             return DecisionTreeClassifier(random_state=random_state, **params)
         elif self == ModelType.LOGREG:
+            from sklearn.linear_model import LogisticRegression
             return LogisticRegression(verbose=0, random_state=random_state, **params)
 
-    def get_default_hyperparameter_space(self, trial):
+    def get_default_hyperparameter_space(self, trial, optimize_balance=True):
         if self == ModelType.LGBM:
+            if optimize_balance:
+                list_values_balance = [True, False]
+            else:
+                list_values_balance = [False]
             return {
-                'is_unbalance': trial.suggest_categorical('is_unbalance', [True, False]),
+                'is_unbalance': trial.suggest_categorical('is_unbalance', list_values_balance),
                 'n_estimators': trial.suggest_int('n_estimators', 2, 100),
                 'learning_rate': trial.suggest_float('learning_rate', 0.001, 0.9, log=True),
                 'max_depth': trial.suggest_int('max_depth', 2, 200),
@@ -222,6 +217,82 @@ class ModelType(Enum):
                 "subsample": trial.suggest_float("subsample", 0.05, 1.0),
                 "colsample_bylevel": trial.suggest_float("colsample_bylevel", 0.05, 1.0),
                 "min_data_in_leaf": trial.suggest_int("min_data_in_leaf", 1, 100),
+            }
+
+        elif self == ModelType.LOGREG:
+            solver = trial.suggest_categorical(
+                "solver", ["lbfgs", "liblinear", "saga"]
+            )
+
+            if solver == "liblinear":
+                penalty = trial.suggest_categorical("penalty_liblinear", ["l1", "l2"])
+                l1_ratio = None
+
+            elif solver == "lbfgs":
+                penalty = "l2"
+                l1_ratio = None
+
+            else:  # saga
+                penalty = trial.suggest_categorical(
+                    "penalty_saga", ["l1", "l2", "elasticnet"]
+                )
+                l1_ratio = (
+                    trial.suggest_float("l1_ratio", 0.05, 0.95)
+                    if penalty == "elasticnet"
+                    else None
+                )
+
+            C = trial.suggest_float("C", 1e-4, 1e2, log=True)
+
+            if optimize_balance:
+                list_values_balance = [None, "balanced"]
+            else:
+                list_values_balance = [None]
+
+            class_weight = trial.suggest_categorical(
+                "class_weight", list_values_balance
+            )
+
+            max_iter = trial.suggest_int("max_iter", 200, 2000)
+
+            return {
+                'solver': solver,
+                'penalty': penalty,
+                'C': C,
+                'l1_ratio': l1_ratio,
+                'class_weight': class_weight,
+                'max_iter': max_iter,
+            }
+
+        elif self == ModelType.DT:
+            return {
+                "criterion": trial.suggest_categorical(
+                    "criterion", ["gini", "entropy", "log_loss"]
+                ),
+
+                "splitter": trial.suggest_categorical(
+                    "splitter", ["best", "random"]
+                ),
+
+                "max_depth": trial.suggest_int(
+                    "max_depth", 2, 20
+                ),
+
+                "min_samples_split": trial.suggest_int(
+                    "min_samples_split", 10, 200, log=True
+                ),
+
+                "min_samples_leaf": trial.suggest_int(
+                    "min_samples_leaf", 5, 100, log=True
+                ),
+
+                "max_features": trial.suggest_categorical(
+                    "max_features", [None, "sqrt", "log2"]
+                ),
+
+                "max_leaf_nodes": trial.suggest_int(
+                    "max_leaf_nodes", 10, 500, log=True
+                ),
             }
 
     def __str__(self):
@@ -255,17 +326,22 @@ def get_model(X_dev,
 
     pipe_steps = []
     if model_type == ModelType.XGB:
+        from sklearn.preprocessing import FunctionTransformer
+        from feature_engine.wrappers import SklearnTransformerWrapper
         inf_to_nan_transformer = FunctionTransformer(_inf_to_nan)
         pipe_steps.append(
             ('inf_to_nan_transformer',
              SklearnTransformerWrapper(transformer=inf_to_nan_transformer))
         )
     if cat_vars:
+        from feature_engine.encoding import RareLabelEncoder
+        from feature_engine.imputation import CategoricalImputer
         pipe_steps.append(('cat_imputer', CategoricalImputer(variables=cat_vars)))
         pipe_steps.append(('rare_encoder', RareLabelEncoder(variables=cat_vars)))
 
     if numerical_imputer:
         if model_type == ModelType.LOGREG:
+            from feature_engine.imputation import AddMissingIndicator
             pipe_steps.append(('missing_indicator', AddMissingIndicator()))
         pipe_steps.append(('num_imputer', numerical_imputer))
 
@@ -293,12 +369,12 @@ def objective(trial, X_dev, y_dev, cohort_dev=None,
               max_shap_sample = 20000,
               performance_group=None,
               random_state=42,
-              ):
+              optimize_balance=True,):
 
     if get_hyperparameters_function is not None:
         params = get_hyperparameters_function(trial)
     else:
-        params = model_type.get_default_hyperparameter_space(trial)
+        params = model_type.get_default_hyperparameter_space(trial, optimize_balance=optimize_balance)
 
     if validation_type == MetricType.TEST_CV_PREDICT_BY_GROUP and performance_group is None:
         message = (
@@ -466,43 +542,96 @@ def _calculate_results(y_true,y_proba):
     )
     return df_results
 
-def calculate_uniform_score(y_proba_train, y_proba_test, y_proba_val,random_state):
+class FitOption(Enum):
+    TRAIN = auto()
+    VALIDATION = auto()
+    TEST = auto()
+    def __str__(self):
+        return f'{self.name}'
+
+def check_fit_options(fitoption, var_name):
+    if str(fitoption) not in ["TRAIN", "VALIDATION", "TEST"]:
+        raise ValueError(f"Unavailable option for {var_name}.")
+    return None
+
+def calculate_uniform_score(y_proba_train, y_proba_val, y_proba_test,random_state,
+                            fit_transformation_by: FitOption = FitOption.TRAIN):
+    from sklearn.preprocessing import QuantileTransformer
+
+    check_fit_options(fit_transformation_by, 'fit_transformation_by')
+    
     df_train = pd.DataFrame({'proba': y_proba_train})
-    df_test = pd.DataFrame({'proba': y_proba_test})
     df_val = pd.DataFrame({'proba': y_proba_val})
-
+    df_test = pd.DataFrame({'proba': y_proba_test})
+    data_mod = {
+        "TRAIN": df_train,
+        "VALIDATION": df_val,
+        "TEST": df_test,
+    }
     quant_transf = QuantileTransformer(random_state=random_state)
-    quant_transf.fit(df_train[['proba']])
+    df_fit = data_mod[str(fit_transformation_by)]
+    quant_transf.fit(df_fit[['proba']])
+
     df_train['score'] = (1-quant_transf.transform(df_train[['proba']])[:,0])*1000
-    df_test['score'] = (1-quant_transf.transform(df_test[['proba']])[:,0])*1000
     df_val['score'] = (1-quant_transf.transform(df_val[['proba']])[:,0])*1000
-    return df_train['score'], df_test['score'], df_val['score']
+    df_test['score'] = (1-quant_transf.transform(df_test[['proba']])[:,0])*1000
+    return df_train['score'], df_val['score'], df_test['score']
 
-def define_percentile_ratings(y_score_train, y_score_test, y_score_val,
-                              n_percentiles):
+
+def define_percentile_ratings(y_score_train, y_score_val, y_score_test,
+                              n_percentiles, fit_percentile_by: FitOption = FitOption.TRAIN):
+    from feature_engine.discretisation import EqualFrequencyDiscretiser
+
+    check_fit_options(fit_percentile_by, 'fit_percentile_by')
+
     df_train = pd.DataFrame({'score': y_score_train})
-    df_test = pd.DataFrame({'score': y_score_test})
     df_val = pd.DataFrame({'score': y_score_val})
-
+    df_test = pd.DataFrame({'score': y_score_test})
+    data_mod = {
+        "TRAIN": df_train,
+        "VALIDATION": df_val,
+        "TEST": df_test,
+    }
     disc = EqualFrequencyDiscretiser(q=n_percentiles,
                                      return_boundaries=True,
                                      precision=1)
-    disc.fit(df_train[['score']])
-    df_train['ratings'] = disc.transform(df_train[['score']])['score']
-    df_test['ratings'] = disc.transform(df_test[['score']])['score']
-    df_val['ratings'] = disc.transform(df_val[['score']])['score']
-    return df_train['ratings'], df_test['ratings'], df_val['ratings']
+    disc_aux = EqualFrequencyDiscretiser(q=n_percentiles,
+                                     return_boundaries=False,
+                                     precision=1)
+    df_fit = data_mod[str(fit_percentile_by)]
+    disc.fit(df_fit[['score']])
+    order = disc_aux.fit_transform(df_fit[['score']])['score']
+    rating = disc.transform(df_fit[['score']])['score']
+
+    df_rating_ordered = pd.DataFrame({'rating': rating,'order': order}).drop_duplicates().sort_values('order')
+    df_train['ratings'] = pd.Categorical(disc.transform(df_train[['score']])['score'],
+                                         df_rating_ordered.rating,
+                                         ordered=True)
+    df_val['ratings'] = pd.Categorical(disc.transform(df_val[['score']])['score'],
+                                       df_rating_ordered.rating,
+                                       ordered=True)
+    df_test['ratings'] = pd.Categorical(disc.transform(df_test[['score']])['score'],
+                                        df_rating_ordered.rating,
+                                        ordered=True)
+    
+    return df_train['ratings'], df_val['ratings'], df_test['ratings']
 
 def _calculate_performance_by_group(target,proba,groups):
-    roc_auc_func = lambda x: roc_auc_score(x.target,x.probas)
+    roc_auc_func = lambda x: roc_auc_score(x.target,x.probas) if x.target.nunique() > 1 else np.nan
     ks_func = lambda x: ks_2samp(x.probas[x.target == 0],
-                                      x.probas[x.target == 1]).statistic
+                                      x.probas[x.target == 1]).statistic if x.target.nunique() > 1 else np.nan
+    count_all = lambda x: x.target.count()
+    count_default = lambda x: x.target.sum()
+    count_nondefault = lambda x: x.target.eq(0).sum()
     df_performance_groups = (
         pd.DataFrame({'target': target,'probas': proba,
                       f'{groups.name}': groups})
-        .groupby([f'{groups.name}'])
+        .groupby([f'{groups.name}'], observed=False)
         .apply(lambda x: pd.Series({'AUC': roc_auc_func(x),
-                                    'KS':  ks_func(x)}),
+                                    'KS':  ks_func(x),
+                                    'Volume': count_all(x),
+                                    'Default': count_default(x),
+                                    'Not default': count_nondefault(x),}),
                 include_groups=False)
         .reset_index()
         .sort_values(f'{groups.name}')
@@ -513,6 +642,7 @@ def mlflow_experiment_run_cv(model, X_dev, X_oot, y_dev, y_oot,
                                  cohort_dev, cohort_oot, 
                                  features = None, 
                                  n_folds=5, n_percentiles=9,
+                                 fit_percentile_data: FitOption = FitOption.TRAIN,
                                  optuna_study=None,
                                  log_datasets=False,
                                  log_model=False,
@@ -520,6 +650,8 @@ def mlflow_experiment_run_cv(model, X_dev, X_oot, y_dev, y_oot,
                                  metric_plots=True,
                                  shap_plots=True,
                                  learning_curve_plot=True,
+                                 calibration_plots=False,
+                                 n_bins_calibration=5,
                                  approval_rate_threshold=0.85,
                                  cat_group_dev=None,
                                  cat_group_oot=None,
@@ -532,6 +664,7 @@ def mlflow_experiment_run_cv(model, X_dev, X_oot, y_dev, y_oot,
                                  group_oot=None):
 
     if mlflow_log:
+        import mlflow
         mlflow.start_run(run_name=run_name,
                          run_id=run_id,
                          nested=nested_run)
@@ -593,6 +726,7 @@ def mlflow_experiment_run_cv(model, X_dev, X_oot, y_dev, y_oot,
                                             cat_group_dev)
         )
         tabular_df = tabulate(df_performance_tn_dev, headers='keys', tablefmt='psql')
+        print('Dev performance by groups:')
         print(tabular_df)
     if isinstance(cat_group_oot, pd.Series):
         df_performance_tn_oot = (
@@ -601,6 +735,7 @@ def mlflow_experiment_run_cv(model, X_dev, X_oot, y_dev, y_oot,
                                             cat_group_oot)
         )
         tabular_df = tabulate(df_performance_tn_oot, headers='keys', tablefmt='psql')
+        print('OOT performance by groups:')
         print(tabular_df)
     df_results_dev = _calculate_results(y_dev,y_probas_dev)
     results_treshold_dev = (
@@ -658,11 +793,11 @@ def mlflow_experiment_run_cv(model, X_dev, X_oot, y_dev, y_oot,
             print('Generating metrics plots...')
             score_train, score_dev, score_oot = (
                 calculate_uniform_score(y_probas_train, y_probas_dev, y_probas_oot,
-                                        random_state)
+                                        random_state, fit_percentile_data)
             )
             ratings_train, ratings_dev, ratings_oot = (
                 define_percentile_ratings(score_train, score_dev, score_oot,
-                                        n_percentiles)
+                                          n_percentiles, fit_percentile_data)
             )
             metrics_figs = (
                 plot_metrics.train_test_validation_metrics_new(y_dev, y_dev, y_oot,
@@ -695,6 +830,17 @@ def mlflow_experiment_run_cv(model, X_dev, X_oot, y_dev, y_oot,
             print('Generating learning curve...')
             learning_curve_fig = plot_metrics.learning_curve_plot(model, X_dev_new, y_dev, skf,
                                                              return_fig=mlflow_log,)
+        
+        if calibration_plots:
+            print('Generating calibration plots...')
+            calib_plot_fig = plot_metrics.train_test_validation_calibration(y_dev, 
+                                                                            y_dev,
+                                                                            y_oot,
+                                                                            y_probas_train,
+                                                                            y_probas_dev,
+                                                                            y_probas_oot,
+                                                                            n_bins=n_bins_calibration,
+                                                                            return_fig=mlflow_log)
 
     if mlflow_log:
 
@@ -707,6 +853,9 @@ def mlflow_experiment_run_cv(model, X_dev, X_oot, y_dev, y_oot,
         if learning_curve_plot:
             for fig_name, fig in learning_curve_fig.items():
                 mlflow.log_figure(fig, f'learning_curve/{fig_name}')
+        if calibration_plots:
+            for fig_name, fig in calib_plot_fig.items():
+                mlflow.log_figure(fig, f'calibration/{fig_name}') 
 
         mlflow.log_metric("auc-dev", auc_dev)
         mlflow.log_metric("ks-dev", ks_dev)
@@ -763,7 +912,10 @@ def mlflow_experiment_run_cv(model, X_dev, X_oot, y_dev, y_oot,
         if log_features:
             features = list(X_dev_new.columns)
             mlflow.log_dict({'feature_list': features}, 'features.json')
+
     if optuna_study:
+        print('Generating hyperparameters optimization plots...')
+        import optuna
         optuna_figs = {}
 
         param_names = list(optuna_study.best_params.keys())
