@@ -13,7 +13,7 @@ from sklearn.metrics import (
 from scipy.stats import ks_2samp
 
 from tabulate import tabulate
-from fgcoop_solvency_model.utils import plot_metrics
+from olist_project.utils import plot_metrics
 
 class MetricType(Enum):
     ALL = auto()
